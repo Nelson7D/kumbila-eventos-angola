@@ -52,7 +52,7 @@ const SpaceFilter = ({ onFilterChange }: SpaceFilterProps) => {
   };
 
   const clearFilters = () => {
-    const resetFilters = {
+    const resetFilters: FilterOptions = {
       types: [],
       price: [0, 1000000],
       capacity: 0,
