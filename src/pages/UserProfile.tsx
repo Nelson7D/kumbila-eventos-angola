@@ -66,13 +66,17 @@ const UserProfile = () => {
   ];
 
   // Format date function
-  const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+  const formatDate = (dateString: string) => {
+    const options: Intl.DateTimeFormatOptions = { 
+      year: "numeric", 
+      month: "long", 
+      day: "numeric" 
+    };
     return new Date(dateString).toLocaleDateString('pt-AO', options);
   };
 
   // Render star rating
-  const renderStars = (rating) => {
+  const renderStars = (rating: number) => {
     return Array(5).fill(0).map((_, index) => (
       <Star 
         key={index} 

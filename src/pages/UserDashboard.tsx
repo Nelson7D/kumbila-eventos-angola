@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   Calendar, Clock, MapPin, Star, Home, FileText, User, 
@@ -91,7 +90,7 @@ const UserDashboard = () => {
     }
   ];
 
-  const renderBookingStatus = (status) => {
+  const renderBookingStatus = (status: string) => {
     switch(status) {
       case "confirmado":
         return <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Confirmado</span>;
@@ -104,8 +103,12 @@ const UserDashboard = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+  const formatDate = (dateString: string) => {
+    const options: Intl.DateTimeFormatOptions = { 
+      year: "numeric", 
+      month: "long", 
+      day: "numeric" 
+    };
     return new Date(dateString).toLocaleDateString('pt-AO', options);
   };
 

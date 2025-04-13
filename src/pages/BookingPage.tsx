@@ -9,10 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const BookingPage = () => {
   const { id } = useParams<{ id: string }>();
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
   const [guests, setGuests] = useState(50);
-  const [selectedExtras, setSelectedExtras] = useState([]);
+  const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("");
   
   // Mock space data
@@ -79,7 +79,7 @@ const BookingPage = () => {
   const availableDates = generateAvailableDates();
   
   // Toggle extra service selection
-  const toggleExtra = (extraId) => {
+  const toggleExtra = (extraId: string) => {
     if (selectedExtras.includes(extraId)) {
       setSelectedExtras(selectedExtras.filter(id => id !== extraId));
     } else {
@@ -103,21 +103,26 @@ const BookingPage = () => {
   };
   
   // Format date
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string | null) => {
     if (!dateString) return "";
     
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const options: Intl.DateTimeFormatOptions = { 
+      weekday: "long", 
+      year: "numeric", 
+      month: "long", 
+      day: "numeric" 
+    };
     return new Date(dateString).toLocaleDateString('pt-AO', options);
   };
   
   // Check if date is available
-  const isDateAvailable = (dateString) => {
+  const isDateAvailable = (dateString: string) => {
     const dateInfo = availableDates.find(d => d.date === dateString);
     return dateInfo && dateInfo.available;
   };
   
   // Handle date selection
-  const handleDateSelect = (dateString) => {
+  const handleDateSelect = (dateString: string) => {
     if (isDateAvailable(dateString)) {
       setSelectedDate(dateString);
     }
@@ -125,7 +130,13 @@ const BookingPage = () => {
   
   // Group dates by month for the calendar view
   const groupDatesByMonth = () => {
-    const grouped = {};
+    type MonthData = {
+      month: string;
+      year: number;
+      dates: Array<{date: string; available: boolean}>;
+    };
+    
+    const grouped: Record<string, MonthData> = {};
     
     availableDates.forEach(dateInfo => {
       const date = new Date(dateInfo.date);
@@ -146,6 +157,14 @@ const BookingPage = () => {
   };
   
   const monthsData = groupDatesByMonth();
+
+  // Navigate to next tab
+  const navigateToTab = (tabValue: string) => {
+    const tabElement = document.querySelector(`[data-value="${tabValue}"]`) as HTMLElement;
+    if (tabElement) {
+      tabElement.click?.();
+    }
+  };
 
   return (
     <>
@@ -314,7 +333,7 @@ const BookingPage = () => {
                         {selectedTimeSlot && (
                           <div className="mt-8">
                             <button
-                              onClick={() => document.querySelector('[data-value="extras"]').click()}
+                              onClick={() => navigateToTab("extras")}
                               className="btn-primary w-full"
                             >
                               Continuar para Serviços Extras
@@ -372,7 +391,7 @@ const BookingPage = () => {
                     
                     <div className="mt-8">
                       <button
-                        onClick={() => document.querySelector('[data-value="pagamento"]').click()}
+                        onClick={() => navigateToTab("pagamento")}
                         className="btn-primary w-full md:w-auto"
                       >
                         Continuar para Pagamento
@@ -417,9 +436,9 @@ const BookingPage = () => {
                                   const extra = extras.find(e => e.id === extraId);
                                   return (
                                     <div key={extraId} className="flex justify-between">
-                                      <span className="text-sm">{extra.name}</span>
+                                      <span className="text-sm">{extra?.name}</span>
                                       <span className="text-sm font-medium">
-                                        {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(extra.price)}
+                                        {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(extra?.price || 0)}
                                       </span>
                                     </div>
                                   );
@@ -576,9 +595,9 @@ const BookingPage = () => {
                                   const extra = extras.find(e => e.id === extraId);
                                   return (
                                     <div key={extraId} className="flex justify-between">
-                                      <span className="text-sm">{extra.name}</span>
+                                      <span className="text-sm">{extra?.name}</span>
                                       <span className="text-sm font-medium">
-                                        {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(extra.price)}
+                                        {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(extra?.price || 0)}
                                       </span>
                                     </div>
                                   );
