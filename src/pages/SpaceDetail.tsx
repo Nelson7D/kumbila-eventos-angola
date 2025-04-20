@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,7 +38,8 @@ const SpaceDetail = () => {
   const loadConfirmedReservations = async () => {
     try {
       const reservations = await reservationService.getSpaceReservations(id!);
-      const dates = reservations.map(res => new Date(res.start_datetime));
+      // Type assertion to ensure TypeScript knows reservations is an array with start_datetime
+      const dates = reservations.map((res: any) => new Date(res.start_datetime));
       setBookedDates(dates);
     } catch (error) {
       console.error('Error loading reservations:', error);
