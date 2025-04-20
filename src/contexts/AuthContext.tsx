@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 
+// Definir tipos manualmente já que não estão sendo gerados automaticamente
 interface UserProfile {
   id: string;
   full_name: string | null;
@@ -42,7 +43,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Função para buscar o perfil do usuário
     const fetchUserProfile = async (userId: string) => {
       try {
-        const { data, error } = await supabase
+        // Usando any temporariamente para evitar erros de tipo com o Supabase
+        // até que os tipos sejam atualizados corretamente
+        const { data, error } = await (supabase as any)
           .from('profiles')
           .select('*')
           .eq('id', userId)
@@ -228,7 +231,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (!state.user?.id) throw new Error("Usuário não está logado");
 
-      const { error } = await supabase
+      // Usando any temporariamente para evitar erros de tipo
+      const { error } = await (supabase as any)
         .from('profiles')
         .update(data)
         .eq('id', state.user.id);
