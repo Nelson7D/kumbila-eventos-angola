@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -11,9 +10,11 @@ interface CreatePaymentData {
 export const paymentService = {
   async createPayment(data: CreatePaymentData) {
     try {
-      const { error } = await supabase
+      const { data: payment, error } = await supabase
         .from('payments')
-        .insert(data);
+        .insert(data)
+        .select()
+        .single();
 
       if (error) throw error;
 
@@ -21,6 +22,8 @@ export const paymentService = {
         title: "Pagamento iniciado",
         description: "Por favor, complete o pagamento seguindo as instruções.",
       });
+
+      return payment;
     } catch (error) {
       console.error('Error creating payment:', error);
       toast({

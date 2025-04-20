@@ -17,6 +17,8 @@ export const reservationService = {
         .insert({
           ...data,
           user_id: (await supabase.auth.getUser()).data.user?.id,
+          start_datetime: data.start_datetime.toISOString(),
+          end_datetime: data.end_datetime.toISOString(),
         })
         .select()
         .single();
@@ -92,5 +94,16 @@ export const reservationService = {
       });
       throw error;
     }
+  },
+
+  async getReservationById(reservationId: string) {
+    const { data, error } = await supabase
+      .from('reservations')
+      .select('*')
+      .eq('id', reservationId)
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 };
