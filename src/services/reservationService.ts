@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -13,33 +12,30 @@ interface CreateReservationData {
 export const reservationService = {
   async createReservation(data: CreateReservationData) {
     try {
-      // Use type assertion to resolve the TypeScript errors
-      const { error } = await (supabase.from('reservations') as any).insert({
-        ...data,
-        user_id: (await supabase.auth.getUser()).data.user?.id,
-      });
+      const { data: newReservation, error } = await supabase
+        .from('reservations')
+        .insert({
+          ...data,
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+        })
+        .select()
+        .single();
 
       if (error) {
-        if (error.message.includes('check_reservation_conflicts')) {
-          toast({
-            title: "Conflito de Horário",
-            description: "Este horário já está reservado. Por favor, escolha outro horário.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Erro ao criar reserva",
-            description: "Não foi possível criar sua reserva. Tente novamente.",
-            variant: "destructive",
-          });
-        }
+        toast({
+          title: "Erro ao criar reserva",
+          description: "Não foi possível criar sua reserva. Tente novamente.",
+          variant: "destructive",
+        });
         throw error;
       }
 
       toast({
         title: "Reserva criada com sucesso!",
-        description: "Aguarde a confirmação do proprietário do espaço.",
+        description: "Por favor, prossiga com o pagamento.",
       });
+
+      return newReservation;
     } catch (error) {
       console.error('Error creating reservation:', error);
       throw error;
@@ -47,9 +43,8 @@ export const reservationService = {
   },
 
   async getSpaceReservations(spaceId: string) {
-    // Use type assertion to resolve the TypeScript errors
-    const { data, error } = await (supabase
-      .from('reservations') as any)
+    const { data, error } = await supabase
+      .from('reservations')
       .select('*')
       .eq('space_id', spaceId)
       .eq('status', 'confirmada')
@@ -60,9 +55,8 @@ export const reservationService = {
   },
 
   async getUserReservations() {
-    // Use type assertion to resolve the TypeScript errors
-    const { data, error } = await (supabase
-      .from('reservations') as any)
+    const { data, error } = await supabase
+      .from('reservations')
       .select(`
         *,
         space:spaces(
@@ -77,9 +71,8 @@ export const reservationService = {
 
   async cancelReservation(reservationId: string) {
     try {
-      // Use type assertion to resolve the TypeScript errors
-      const { error } = await (supabase
-        .from('reservations') as any)
+      const { error } = await supabase
+        .from('reservations')
         .update({ status: 'cancelada' })
         .eq('id', reservationId)
         .single();

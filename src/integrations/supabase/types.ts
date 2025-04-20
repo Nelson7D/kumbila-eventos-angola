@@ -9,7 +9,89 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          method: string | null
+          paid_at: string | null
+          payment_proof: string | null
+          payment_reference: string | null
+          released_at: string | null
+          reservation_id: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          method?: string | null
+          paid_at?: string | null
+          payment_proof?: string | null
+          payment_reference?: string | null
+          released_at?: string | null
+          reservation_id: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          method?: string | null
+          paid_at?: string | null
+          payment_proof?: string | null
+          payment_reference?: string | null
+          released_at?: string | null
+          reservation_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservations: {
+        Row: {
+          created_at: string | null
+          end_datetime: string
+          extras: Json | null
+          id: string
+          space_id: string
+          start_datetime: string
+          status: string
+          total_price: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          end_datetime: string
+          extras?: Json | null
+          id?: string
+          space_id: string
+          start_datetime: string
+          status?: string
+          total_price: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          end_datetime?: string
+          extras?: Json | null
+          id?: string
+          space_id?: string
+          start_datetime?: string
+          status?: string
+          total_price?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
