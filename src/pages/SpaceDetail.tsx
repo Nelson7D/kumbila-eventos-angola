@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { reservationService } from '@/services/reservationService';
@@ -9,13 +8,18 @@ import { getSpaceById } from '@/utils/sampleData';
 import SpaceDetailHeader from '@/components/SpaceDetailHeader';
 import SpaceDetailInfo from '@/components/SpaceDetailInfo';
 import SpaceBookingSidebar from '@/components/SpaceBookingSidebar';
+import { ReviewList } from '@/components/ReviewList';
+import { ReviewForm } from '@/components/ReviewForm';
+import { supabase } from '@/integrations/supabase/client';
 
 const SpaceDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [space, setSpace] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
-  
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [userHasConfirmedReservation, setUserHasConfirmedReservation] = useState(false);
+
   useEffect(() => {
     if (id) {
       const spaceData = getSpaceById(id);
@@ -30,13 +34,35 @@ const SpaceDetail = () => {
   const loadConfirmedReservations = async () => {
     try {
       const reservations = await reservationService.getSpaceReservations(id!);
-      // Type assertion to ensure TypeScript knows reservations is an array with start_datetime
       const dates = reservations.map((res: any) => new Date(res.start_datetime));
       setBookedDates(dates);
     } catch (error) {
       console.error('Error loading reservations:', error);
     }
   };
+
+  useEffect(() => {
+    const checkUserReservation = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !id) return;
+
+      try {
+        const { data: reservations } = await supabase
+          .from('reservations')
+          .select()
+          .eq('user_id', user.id)
+          .eq('space_id', id)
+          .eq('status', 'confirmada')
+          .limit(1);
+
+        setUserHasConfirmedReservation(!!reservations?.length);
+      } catch (error) {
+        console.error('Error checking user reservation:', error);
+      }
+    };
+
+    checkUserReservation();
+  }, [id]);
 
   if (loading) {
     return (
@@ -89,6 +115,33 @@ const SpaceDetail = () => {
                 amenities={space.amenities}
                 extras={space.extras}
               />
+              
+              <div className="mt-8">
+                <h2 className="text-2xl font-bold mb-4">Avaliações</h2>
+                {userHasConfirmedReservation && !showReviewForm && (
+                  <div className="mb-4">
+                    <Button 
+                      onClick={() => setShowReviewForm(true)}
+                      variant="outline"
+                    >
+                      Deixar uma avaliação
+                    </Button>
+                  </div>
+                )}
+                
+                {showReviewForm && (
+                  <div className="mb-6">
+                    <ReviewForm 
+                      spaceId={id!} 
+                      onReviewSubmitted={() => {
+                        setShowReviewForm(false);
+                      }}
+                    />
+                  </div>
+                )}
+                
+                <ReviewList spaceId={id!} />
+              </div>
             </div>
             
             <div className="lg:col-span-1">
