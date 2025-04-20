@@ -13,7 +13,7 @@ interface CreateReservationData {
 export const reservationService = {
   async createReservation(data: CreateReservationData) {
     try {
-      // Using type assertion to get around the type error
+      // Use type assertion to resolve the TypeScript errors
       const { error } = await (supabase.from('reservations') as any).insert({
         ...data,
         user_id: (await supabase.auth.getUser()).data.user?.id,
@@ -47,7 +47,7 @@ export const reservationService = {
   },
 
   async getSpaceReservations(spaceId: string) {
-    // Using type assertion to get around the type error
+    // Use type assertion to resolve the TypeScript errors
     const { data, error } = await (supabase
       .from('reservations') as any)
       .select('*')
@@ -60,7 +60,7 @@ export const reservationService = {
   },
 
   async getUserReservations() {
-    // Using type assertion to get around the type error
+    // Use type assertion to resolve the TypeScript errors
     const { data, error } = await (supabase
       .from('reservations') as any)
       .select(`
@@ -77,7 +77,7 @@ export const reservationService = {
 
   async cancelReservation(reservationId: string) {
     try {
-      // Using type assertion to get around the type error
+      // Use type assertion to resolve the TypeScript errors
       const { error } = await (supabase
         .from('reservations') as any)
         .update({ status: 'cancelada' })
