@@ -10,7 +10,7 @@ interface CreatePaymentData {
 }
 
 export const paymentService = {
-  async createPayment(data: CreatePaymentData): Promise<Tables['payments']> {
+  async createPayment(data: CreatePaymentData): Promise<Tables<'payments'>> {
     try {
       const { data: payment, error } = await supabase
         .from('payments')
