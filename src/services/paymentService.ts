@@ -1,5 +1,7 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { Tables } from '@/integrations/supabase/types';
 
 interface CreatePaymentData {
   reservation_id: string;
@@ -8,7 +10,7 @@ interface CreatePaymentData {
 }
 
 export const paymentService = {
-  async createPayment(data: CreatePaymentData) {
+  async createPayment(data: CreatePaymentData): Promise<Tables['payments']> {
     try {
       const { data: payment, error } = await supabase
         .from('payments')

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { paymentService } from '@/services/paymentService';
+import { Tables } from '@/integrations/supabase/types';
 
 interface PaymentFormProps {
   reservationId: string;
@@ -31,7 +32,7 @@ const PaymentForm = ({ reservationId, amount, onPaymentComplete }: PaymentFormPr
       setIsProcessing(true);
 
       // Create payment record
-      const { data: payment } = await paymentService.createPayment({
+      const payment = await paymentService.createPayment({
         reservation_id: reservationId,
         amount,
         method: selectedMethod
