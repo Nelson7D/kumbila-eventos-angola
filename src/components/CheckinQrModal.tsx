@@ -2,7 +2,7 @@
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Calendar, Clock, MapPin, Check, QrCode, X } from "lucide-react";
-import QRCode from "qrcode.react";
+import { QRCodeCanvas } from "qrcode.react";
 
 interface CheckinQrModalProps {
   open: boolean;
@@ -35,7 +35,7 @@ export const CheckinQrModal: React.FC<CheckinQrModalProps> = ({
         </DialogHeader>
         <div className="flex flex-col items-center bg-white px-8 pb-6 pt-4 rounded-b-lg shadow-md">
           <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100 mb-3">
-            <QRCode value={qrUrl} size={180} fgColor="#1B2D69" bgColor="#fff" level="H" />
+            <QRCodeCanvas value={qrUrl} size={180} fgColor="#1B2D69" bgColor="#fff" level="H" />
           </div>
           <div className="mt-2 text-center space-y-2 w-full">
             <div className="flex flex-col items-center">
@@ -82,3 +82,4 @@ export const CheckinQrModal: React.FC<CheckinQrModalProps> = ({
     </Dialog>
   );
 };
+
