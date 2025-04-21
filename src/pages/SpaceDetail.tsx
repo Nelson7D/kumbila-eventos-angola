@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { reservationService } from '@/services/reservationService';
@@ -11,6 +12,7 @@ import SpaceBookingSidebar from '@/components/SpaceBookingSidebar';
 import { ReviewList } from '@/components/ReviewList';
 import { ReviewForm } from '@/components/ReviewForm';
 import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
 
 const SpaceDetail = () => {
   const { id } = useParams<{ id: string }>();

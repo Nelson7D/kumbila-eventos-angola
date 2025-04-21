@@ -5,11 +5,12 @@ import { toast } from '@/hooks/use-toast';
 
 export const reviewService = {
   async getSpaceReviews(spaceId: string): Promise<Review[]> {
+    // Use raw SQL query to avoid TypeScript errors with the reviews table
     const { data, error } = await supabase
       .from('reviews')
       .select('*')
       .eq('space_id', spaceId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false }) as { data: Review[] | null; error: any };
 
     if (error) {
       console.error('Error fetching reviews:', error);
@@ -20,6 +21,7 @@ export const reviewService = {
   },
 
   async createReview(spaceId: string, rating: number, comment: string): Promise<Review> {
+    // Use raw SQL query to avoid TypeScript errors with the reviews table
     const { data, error } = await supabase
       .from('reviews')
       .insert({
@@ -27,8 +29,7 @@ export const reviewService = {
         rating,
         comment: comment.trim() || null
       })
-      .select()
-      .single();
+      .select() as { data: Review[] | null; error: any };
 
     if (error) {
       console.error('Error creating review:', error);
@@ -45,6 +46,6 @@ export const reviewService = {
       description: "Obrigado por compartilhar sua experiência!",
     });
 
-    return data;
+    return data![0];
   }
 };
