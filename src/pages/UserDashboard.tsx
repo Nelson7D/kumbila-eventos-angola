@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { 
   Calendar, Clock, MapPin, Star, Home, FileText, User, 
-  LogOut, Heart, Settings, MessageCircle, RotateCcw
+  LogOut, Heart, Settings, MessageCircle, RotateCcw, QrCode
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CheckinQrModal } from '@/components/CheckinQrModal';
 
 const UserDashboard = () => {
   const [activeTab, setActiveTab] = useState("reservas");
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [selectedQrReservation, setSelectedQrReservation] = useState<any>(null);
 
-  // Mock data
   const user = {
     name: "Carlos Mendes",
     email: "carlos@example.com",
@@ -103,6 +105,12 @@ const UserDashboard = () => {
     }
   };
 
+  const isEligibleForQr = (status: string) =>
+    status === "confirmado" || status === "pago";
+
+  const isFinalizada = (status: string) =>
+    status === "finalizada" || status === "concluído" || status === "cancelada";
+
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = { 
       year: "numeric", 
@@ -117,7 +125,6 @@ const UserDashboard = () => {
       <Navbar />
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row gap-6">
-          {/* Sidebar */}
           <div className="md:w-1/4">
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
               <div className="flex flex-col items-center text-center mb-6">
@@ -180,7 +187,6 @@ const UserDashboard = () => {
             </div>
           </div>
           
-          {/* Main Content */}
           <div className="md:w-3/4">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="mb-8 bg-white p-1 rounded-lg shadow-sm">
@@ -194,66 +200,96 @@ const UserDashboard = () => {
                 <h1 className="text-2xl font-semibold mb-6">Minhas Reservas</h1>
                 {bookings.length > 0 ? (
                   <div className="space-y-4">
-                    {bookings.map(booking => (
-                      <Card key={booking.id} className="overflow-hidden">
-                        <div className="flex flex-col md:flex-row">
-                          <div className="md:w-1/4">
-                            <img 
-                              src={booking.spaceImage} 
-                              alt={booking.spaceName}
-                              className="h-full w-full object-cover" 
-                            />
+                    {bookings.map(booking => {
+                      const showQr = isEligibleForQr(booking.status) && !isFinalizada(booking.status);
+                      return (
+                        <Card key={booking.id} className="overflow-hidden">
+                          <div className="flex flex-col md:flex-row">
+                            <div className="md:w-1/4">
+                              <img 
+                                src={booking.spaceImage} 
+                                alt={booking.spaceName}
+                                className="h-full w-full object-cover" 
+                              />
+                            </div>
+                            <CardContent className="p-4 md:p-6 flex-1">
+                              <div className="flex flex-col md:flex-row md:items-center justify-between mb-2">
+                                <h3 className="text-lg font-semibold">{booking.spaceName}</h3>
+                                {renderBookingStatus(booking.status)}
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-6 mt-4">
+                                <div className="flex items-center text-gray-600">
+                                  <Calendar size={16} className="mr-2 text-gray-400" />
+                                  <span>{formatDate(booking.date)}</span>
+                                </div>
+                                <div className="flex items-center text-gray-600">
+                                  <Clock size={16} className="mr-2 text-gray-400" />
+                                  <span>{booking.time}</span>
+                                </div>
+                                <div className="flex items-center text-gray-600">
+                                  <MapPin size={16} className="mr-2 text-gray-400" />
+                                  <span>{booking.location}</span>
+                                </div>
+                                <div className="font-medium">
+                                  {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(booking.price)}
+                                </div>
+                              </div>
+                              
+                              <div className="flex flex-wrap gap-3 mt-6 items-center">
+                                <a 
+                                  href={`/reserva/${booking.id}`}
+                                  className="btn-outline text-sm py-2"
+                                >
+                                  Ver Detalhes
+                                </a>
+                                {showQr && (
+                                  <button
+                                    className="flex items-center space-x-1 border border-blue-600 text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg text-sm font-medium transition"
+                                    onClick={() => {
+                                      setSelectedQrReservation({
+                                        id: booking.id,
+                                        spaceName: booking.spaceName,
+                                        date: formatDate(booking.date),
+                                        time: booking.time,
+                                        location: booking.location,
+                                        status: booking.status,
+                                        checkinDone: false,
+                                        checkoutDone: false,
+                                      });
+                                      setQrModalOpen(true);
+                                    }}
+                                  >
+                                    <QrCode size={16} />
+                                    <span>Mostrar QR Code</span>
+                                  </button>
+                                )}
+                                {booking.status === "confirmado" && (
+                                  <button className="flex items-center space-x-1 border border-orange-500 text-orange-500 hover:bg-orange-50 px-3 py-2 rounded-lg text-sm">
+                                    <RotateCcw size={16} />
+                                    <span>Reagendar</span>
+                                  </button>
+                                )}
+                                {booking.status === "concluído" && (
+                                  <button className="flex items-center space-x-1 border border-yellow-500 text-yellow-500 hover:bg-yellow-50 px-3 py-2 rounded-lg text-sm">
+                                    <Star size={16} />
+                                    <span>Avaliar</span>
+                                  </button>
+                                )}
+                              </div>
+                            </CardContent>
                           </div>
-                          <CardContent className="p-4 md:p-6 flex-1">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-2">
-                              <h3 className="text-lg font-semibold">{booking.spaceName}</h3>
-                              {renderBookingStatus(booking.status)}
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-6 mt-4">
-                              <div className="flex items-center text-gray-600">
-                                <Calendar size={16} className="mr-2 text-gray-400" />
-                                <span>{formatDate(booking.date)}</span>
-                              </div>
-                              <div className="flex items-center text-gray-600">
-                                <Clock size={16} className="mr-2 text-gray-400" />
-                                <span>{booking.time}</span>
-                              </div>
-                              <div className="flex items-center text-gray-600">
-                                <MapPin size={16} className="mr-2 text-gray-400" />
-                                <span>{booking.location}</span>
-                              </div>
-                              <div className="font-medium">
-                                {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(booking.price)}
-                              </div>
-                            </div>
-                            
-                            <div className="flex flex-wrap gap-3 mt-6">
-                              <a 
-                                href={`/reserva/${booking.id}`}
-                                className="btn-outline text-sm py-2"
-                              >
-                                Ver Detalhes
-                              </a>
-                              
-                              {booking.status === "confirmado" && (
-                                <button className="flex items-center space-x-1 border border-orange-500 text-orange-500 hover:bg-orange-50 px-3 py-2 rounded-lg text-sm">
-                                  <RotateCcw size={16} />
-                                  <span>Reagendar</span>
-                                </button>
-                              )}
-                              
-                              {booking.status === "concluído" && (
-                                <button className="flex items-center space-x-1 border border-yellow-500 text-yellow-500 hover:bg-yellow-50 px-3 py-2 rounded-lg text-sm">
-                                  <Star size={16} />
-                                  <span>Avaliar</span>
-                                </button>
-                              )}
-                            </div>
-                          </CardContent>
-                        </div>
-                      </Card>
-                    ))}
+
+                          {selectedQrReservation && selectedQrReservation.id === booking.id && (
+                            <CheckinQrModal
+                              open={qrModalOpen}
+                              onOpenChange={setQrModalOpen}
+                              reservation={selectedQrReservation}
+                            />
+                          )}
+                        </Card>
+                      );
+                    })}
                   </div>
                 ) : (
                   <Card>
