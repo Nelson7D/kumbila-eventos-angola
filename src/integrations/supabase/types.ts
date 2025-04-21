@@ -9,6 +9,41 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      checkins: {
+        Row: {
+          checkin_time: string | null
+          checkout_time: string | null
+          created_at: string
+          id: string
+          reservation_id: string
+          verified_by_owner: boolean | null
+        }
+        Insert: {
+          checkin_time?: string | null
+          checkout_time?: string | null
+          created_at?: string
+          id?: string
+          reservation_id: string
+          verified_by_owner?: boolean | null
+        }
+        Update: {
+          checkin_time?: string | null
+          checkout_time?: string | null
+          created_at?: string
+          id?: string
+          reservation_id?: string
+          verified_by_owner?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkins_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
@@ -82,7 +117,7 @@ export type Database = {
       }
       reservations: {
         Row: {
-          created_at: string | null
+          created_at: string
           end_datetime: string
           extras: Json | null
           id: string
@@ -90,10 +125,11 @@ export type Database = {
           start_datetime: string
           status: string
           total_price: number
+          updated_at: string
           user_id: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           end_datetime: string
           extras?: Json | null
           id?: string
@@ -101,10 +137,11 @@ export type Database = {
           start_datetime: string
           status?: string
           total_price: number
+          updated_at?: string
           user_id: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           end_datetime?: string
           extras?: Json | null
           id?: string
@@ -112,7 +149,90 @@ export type Database = {
           start_datetime?: string
           status?: string
           total_price?: number
+          updated_at?: string
           user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservations_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reviews: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          rating: number
+          space_id: string
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          rating: number
+          space_id: string
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          rating?: number
+          space_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spaces: {
+        Row: {
+          capacity: number
+          created_at: string
+          description: string | null
+          id: string
+          location: string | null
+          name: string
+          owner_id: string
+          price_per_day: number
+          type: string | null
+          updated_at: string
+        }
+        Insert: {
+          capacity: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          location?: string | null
+          name: string
+          owner_id: string
+          price_per_day: number
+          type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          location?: string | null
+          name?: string
+          owner_id?: string
+          price_per_day?: number
+          type?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -121,7 +241,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      validate_and_perform_checkin: {
+        Args: { reservation_id_param: string }
+        Returns: Json
+      }
+      validate_and_perform_checkout: {
+        Args: { reservation_id_param: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
