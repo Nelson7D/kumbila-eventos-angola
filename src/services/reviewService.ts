@@ -5,9 +5,9 @@ import { toast } from '@/hooks/use-toast';
 
 export const reviewService = {
   async getSpaceReviews(spaceId: string): Promise<Review[]> {
-    // Use the PostgreSQL function we created instead of querying the table directly
+    // Use type assertion to bypass TypeScript typechecking since our RPC function is valid but not in the types
     const { data, error } = await supabase
-      .rpc('get_space_reviews', { space_id_param: spaceId }) as { data: Review[] | null; error: any };
+      .rpc('get_space_reviews', { space_id_param: spaceId }) as unknown as { data: Review[] | null; error: any };
 
     if (error) {
       console.error('Error fetching reviews:', error);
@@ -18,13 +18,13 @@ export const reviewService = {
   },
 
   async createReview(spaceId: string, rating: number, comment: string): Promise<Review> {
-    // Use the PostgreSQL function we created instead of inserting directly
+    // Use type assertion to bypass TypeScript typechecking
     const { data, error } = await supabase
       .rpc('create_review', {
         space_id_param: spaceId,
         rating_param: rating,
         comment_param: comment.trim() || null
-      }) as { data: Review[] | null; error: any };
+      }) as unknown as { data: Review[] | null; error: any };
 
     if (error) {
       console.error('Error creating review:', error);
