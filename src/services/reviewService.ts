@@ -5,9 +5,9 @@ import { toast } from '@/hooks/use-toast';
 
 export const reviewService = {
   async getSpaceReviews(spaceId: string): Promise<Review[]> {
-    // Use type assertion to bypass TypeScript typechecking since our RPC function is valid but not in the types
-    const { data, error } = await (supabase
-      .rpc('get_space_reviews', { space_id_param: spaceId }) as unknown as { data: Review[] | null; error: any });
+    // Typecast supabase as any to call custom RPC functions
+    const { data, error } = await ((supabase as any)
+      .rpc('get_space_reviews', { space_id_param: spaceId }) as Promise<{ data: Review[] | null; error: any }>);
 
     if (error) {
       console.error('Error fetching reviews:', error);
@@ -18,13 +18,12 @@ export const reviewService = {
   },
 
   async createReview(spaceId: string, rating: number, comment: string): Promise<Review> {
-    // Use type assertion to bypass TypeScript typechecking
-    const { data, error } = await (supabase
+    const { data, error } = await ((supabase as any)
       .rpc('create_review', {
         space_id_param: spaceId,
         rating_param: rating,
         comment_param: comment.trim() || null
-      }) as unknown as { data: Review[] | null; error: any });
+      }) as Promise<{ data: Review[] | null; error: any }>);
 
     if (error) {
       console.error('Error creating review:', error);
@@ -41,7 +40,6 @@ export const reviewService = {
       description: "Obrigado por compartilhar sua experiência!",
     });
 
-    // The create_review function returns the newly created review
     return data![0];
   }
 };
