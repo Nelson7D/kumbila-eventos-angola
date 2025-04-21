@@ -5,12 +5,9 @@ import { toast } from '@/hooks/use-toast';
 
 export const reviewService = {
   async getSpaceReviews(spaceId: string): Promise<Review[]> {
-    // Use raw SQL query to avoid TypeScript errors with the reviews table
+    // Use the PostgreSQL function we created instead of querying the table directly
     const { data, error } = await supabase
-      .from('reviews')
-      .select('*')
-      .eq('space_id', spaceId)
-      .order('created_at', { ascending: false }) as { data: Review[] | null; error: any };
+      .rpc('get_space_reviews', { space_id_param: spaceId }) as { data: Review[] | null; error: any };
 
     if (error) {
       console.error('Error fetching reviews:', error);
@@ -21,15 +18,13 @@ export const reviewService = {
   },
 
   async createReview(spaceId: string, rating: number, comment: string): Promise<Review> {
-    // Use raw SQL query to avoid TypeScript errors with the reviews table
+    // Use the PostgreSQL function we created instead of inserting directly
     const { data, error } = await supabase
-      .from('reviews')
-      .insert({
-        space_id: spaceId,
-        rating,
-        comment: comment.trim() || null
-      })
-      .select() as { data: Review[] | null; error: any };
+      .rpc('create_review', {
+        space_id_param: spaceId,
+        rating_param: rating,
+        comment_param: comment.trim() || null
+      }) as { data: Review[] | null; error: any };
 
     if (error) {
       console.error('Error creating review:', error);
@@ -46,6 +41,7 @@ export const reviewService = {
       description: "Obrigado por compartilhar sua experiência!",
     });
 
+    // The create_review function returns the newly created review
     return data![0];
   }
 };
