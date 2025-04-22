@@ -398,7 +398,6 @@ const AuditLogs = () => {
         </>
       )}
 
-      {/* Log Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>

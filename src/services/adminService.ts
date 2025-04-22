@@ -300,7 +300,7 @@ const adminService = {
           avatar_url,
           created_at,
           status,
-          auth_users:auth.users(email),
+          auth_users:auth.users!id(email),
           user_roles(role)
         `, { count: 'exact' });
       
@@ -315,14 +315,14 @@ const adminService = {
       if (error) throw error;
       
       const users: AdminUser[] = data?.map(user => ({
-        id: user.id,
+        id: user.id || '',
         email: user.auth_users?.email || '',
         full_name: user.full_name || '',
         avatar_url: user.avatar_url,
         user_role: user.user_roles?.[0]?.role || 'user',
-        created_at: user.created_at,
+        created_at: user.created_at || '',
         last_sign_in: user.last_sign_in_at,
-        status: user.status as 'active' | 'inactive' | 'suspended' || 'active'
+        status: (user.status as 'active' | 'inactive' | 'suspended') || 'active'
       })) || [];
       
       return { users, total: count || 0 };
@@ -410,7 +410,7 @@ const adminService = {
           status,
           created_at,
           price_per_day,
-          owner:profiles(id, full_name)
+          owner:profiles!owner_id(id, full_name)
         `, { count: 'exact' });
       
       // Apply filters
@@ -434,8 +434,8 @@ const adminService = {
       if (error) throw error;
       
       const spaces: AdminSpace[] = data?.map(space => ({
-        id: space.id,
-        name: space.name,
+        id: space.id || '',
+        name: space.name || '',
         location: space.location || '',
         type: space.type || '',
         owner: {
@@ -443,7 +443,7 @@ const adminService = {
           full_name: space.owner?.full_name || ''
         },
         status: (space.status as 'active' | 'pending' | 'blocked') || 'active',
-        created_at: space.created_at,
+        created_at: space.created_at || '',
         price_per_day: space.price_per_day
       })) || [];
       
@@ -499,8 +499,8 @@ const adminService = {
           status,
           total_price,
           created_at,
-          user:profiles(id, full_name),
-          space:spaces(id, name)
+          user:profiles!user_id(id, full_name),
+          space:spaces!space_id(id, name)
         `, { count: 'exact' });
       
       // Apply filters
@@ -527,7 +527,7 @@ const adminService = {
       if (error) throw error;
       
       const reservations: AdminReservation[] = data?.map(res => ({
-        id: res.id,
+        id: res.id || '',
         user: {
           id: res.user?.id || '',
           full_name: res.user?.full_name || ''
@@ -536,11 +536,11 @@ const adminService = {
           id: res.space?.id || '',
           name: res.space?.name || ''
         },
-        start_datetime: res.start_datetime,
-        end_datetime: res.end_datetime,
-        status: res.status,
+        start_datetime: res.start_datetime || '',
+        end_datetime: res.end_datetime || '',
+        status: res.status || '',
         total_price: res.total_price,
-        created_at: res.created_at
+        created_at: res.created_at || ''
       })) || [];
       
       return { reservations, total: count || 0 };
@@ -599,9 +599,9 @@ const adminService = {
           method,
           paid_at,
           released_at,
-          reservation:reservations(
-            user:profiles(full_name),
-            space:spaces(name)
+          reservation:reservations!reservation_id(
+            user:profiles!user_id(full_name),
+            space:spaces!space_id(name)
           )
         `, { count: 'exact' });
       
@@ -626,10 +626,10 @@ const adminService = {
       if (error) throw error;
       
       const payments: AdminPayment[] = data?.map(payment => ({
-        id: payment.id,
-        reservation_id: payment.reservation_id,
+        id: payment.id || '',
+        reservation_id: payment.reservation_id || '',
         amount: payment.amount,
-        status: payment.status,
+        status: payment.status || '',
         method: payment.method || '',
         paid_at: payment.paid_at,
         released_at: payment.released_at,
@@ -732,8 +732,8 @@ const adminService = {
           rating,
           comment,
           created_at,
-          user:profiles(id, full_name),
-          space:spaces(id, name)
+          user:profiles!user_id(id, full_name),
+          space:spaces!space_id(id, name)
         `, { count: 'exact' });
       
       // Apply filters
@@ -760,7 +760,7 @@ const adminService = {
       if (error) throw error;
       
       const reviews: AdminReview[] = data?.map(review => ({
-        id: review.id,
+        id: review.id || '',
         user: {
           id: review.user?.id || '',
           full_name: review.user?.full_name || ''
@@ -771,7 +771,7 @@ const adminService = {
         },
         rating: review.rating,
         comment: review.comment || '',
-        created_at: review.created_at
+        created_at: review.created_at || ''
       })) || [];
       
       return { reviews, total: count || 0 };
