@@ -2,6 +2,7 @@
 import { format, parseISO, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
+import React from "react";
 
 export function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(value);
