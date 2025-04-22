@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -291,6 +292,7 @@ const adminService = {
   // Users management
   async getUsers(search = '', page = 1, limit = 10) {
     try {
+      // First, get profiles
       let query = supabase
         .from('profiles')
         .select(`
@@ -298,37 +300,49 @@ const adminService = {
           full_name,
           avatar_url,
           created_at,
-          status,
-          user_roles(role)
+          status
         `, { count: 'exact' });
       
-      // Adding a separate query to get email from auth.users
-      const { data: authUsersData } = await supabase.auth.admin.listUsers();
-      
+      // Add search filter if provided
       if (search) {
         query = query.or(`full_name.ilike.%${search}%`);
       }
       
-      const { data, error, count } = await query
+      // Get profile data
+      const { data: profilesData, error: profilesError, count } = await query
         .order('created_at', { ascending: false })
         .range((page - 1) * limit, page * limit - 1);
       
-      if (error) throw error;
+      if (profilesError) throw profilesError;
       
-      // Match profiles with auth users to get emails
-      const users: AdminUser[] = data?.map(user => {
+      // Get user roles in a separate query
+      const profileIds = profilesData?.map(profile => profile.id) || [];
+      const { data: userRolesData } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .in('user_id', profileIds);
+      
+      // Adding a separate query to get email from auth.users
+      const { data: authUsersData } = await supabase.auth.admin.listUsers();
+      
+      // Match profiles with auth users and user roles
+      const users: AdminUser[] = profilesData?.map(profile => {
         // Find corresponding auth user for email
-        const authUser = authUsersData?.users?.find(au => au.id === user.id);
+        const authUser = authUsersData?.users?.find(au => au.id === profile.id);
+        
+        // Find user role
+        const userRole = userRolesData?.find(ur => ur.user_id === profile.id);
+        const role = userRole ? userRole.role : 'user';
         
         return {
-          id: user.id || '',
+          id: profile.id || '',
           email: authUser?.email || '',
-          full_name: user.full_name || '',
-          avatar_url: user.avatar_url,
-          user_role: user.user_roles?.[0]?.role || 'user',
-          created_at: user.created_at || '',
+          full_name: profile.full_name || '',
+          avatar_url: profile.avatar_url,
+          user_role: role,
+          created_at: profile.created_at || '',
           last_sign_in: authUser?.last_sign_in_at,
-          status: (user.status as 'active' | 'inactive' | 'suspended') || 'active'
+          status: (profile.status as 'active' | 'inactive' | 'suspended') || 'active'
         };
       }) || [];
       
