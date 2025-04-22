@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -108,7 +107,6 @@ export const reservationService = {
     return data;
   },
   
-  // New functions for owner dashboard
   async getOwnerReservations() {
     try {
       const { data: userSpaces, error: spacesError } = await supabase
@@ -201,7 +199,7 @@ export const reservationService = {
         toast({
           title: "Check-in já realizado",
           description: "Esta reserva já possui um check-in registrado.",
-          variant: "warning",
+          variant: "default",
         });
         return false;
       }
@@ -256,7 +254,7 @@ export const reservationService = {
         toast({
           title: "Check-in não realizado",
           description: "É necessário realizar o check-in antes do check-out.",
-          variant: "warning",
+          variant: "default",
         });
         return false;
       }
@@ -265,7 +263,7 @@ export const reservationService = {
         toast({
           title: "Check-out já realizado",
           description: "Esta reserva já possui um check-out registrado.",
-          variant: "warning",
+          variant: "default",
         });
         return false;
       }
@@ -307,7 +305,6 @@ export const reservationService = {
     }
   },
   
-  // Analytics functions
   async getOwnerReservationStats(timeframe = 'year') {
     try {
       const { data: userSpaces, error: spacesError } = await supabase
@@ -330,7 +327,6 @@ export const reservationService = {
       
       const spaceIds = userSpaces.map(space => space.id);
       
-      // Set date range based on timeframe
       let startDate = new Date();
       if (timeframe === 'year') {
         startDate.setFullYear(startDate.getFullYear() - 1);
@@ -340,7 +336,6 @@ export const reservationService = {
         startDate.setDate(startDate.getDate() - 7);
       }
       
-      // Get all reservations for owner's spaces
       const { data, error } = await supabase
         .from('reservations')
         .select('id, status, total_price, start_datetime, space_id')
@@ -349,7 +344,6 @@ export const reservationService = {
       
       if (error) throw error;
       
-      // Get all reviews for owner's spaces
       const { data: reviews, error: reviewsError } = await supabase
         .from('reviews')
         .select('rating')
@@ -357,7 +351,6 @@ export const reservationService = {
       
       if (reviewsError) throw reviewsError;
       
-      // Calculate statistics
       const stats = {
         totalReservations: data?.length || 0,
         confirmedReservations: data?.filter(r => ['confirmada', 'em_andamento', 'finalizada'].includes(r.status))?.length || 0,
@@ -390,7 +383,6 @@ export const reservationService = {
       
       monthlyData[monthIndex].bookings += 1;
       
-      // Only add to revenue if reservation wasn't canceled
       if (reservation.status !== 'cancelada') {
         monthlyData[monthIndex].revenue += Number(reservation.total_price);
       }
