@@ -2,10 +2,15 @@
 import { useState } from 'react';
 
 /**
+ * @typedef {Object.<string, string>} FormErrors
+ */
+
+/**
  * Custom hook for form validation
- * @param {Object} initialValues - Initial form values
- * @param {Object} rules - Validation rules for each field
- * @returns {Object} - Form state and methods
+ * @template T
+ * @param {T} initialValues - Initial form values
+ * @param {Object.<string, Object>} rules - Validation rules
+ * @returns {Object} Form validation utilities
  */
 export function useFormValidation(initialValues, rules) {
   const [values, setValues] = useState(initialValues);

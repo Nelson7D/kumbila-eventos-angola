@@ -5,9 +5,9 @@ import { reviewService } from '@/services/reviewService';
 import { Card, CardContent } from '@/components/ui/card';
 
 /**
- * Component to display a list of reviews for a space
+ * Review list component
  * @param {Object} props - Component props
- * @param {string} props.spaceId - ID of the space to show reviews for
+ * @param {string} props.spaceId - Space ID
  */
 export function ReviewList({ spaceId }) {
   const [reviews, setReviews] = useState([]);

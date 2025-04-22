@@ -7,9 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 /**
- * Form component for submitting reviews
+ * Review form component
  * @param {Object} props - Component props
- * @param {string} props.spaceId - ID of the space being reviewed
+ * @param {string} props.spaceId - Space ID
  * @param {Function} [props.onReviewSubmitted] - Callback when review is submitted
  */
 export function ReviewForm({ spaceId, onReviewSubmitted }) {
@@ -30,7 +30,7 @@ export function ReviewForm({ spaceId, onReviewSubmitted }) {
       await reviewService.createReview(spaceId, rating, comment);
       setRating(0);
       setComment('');
-      if (onReviewSubmitted) onReviewSubmitted();
+      onReviewSubmitted?.();
     } finally {
       setIsSubmitting(false);
     }

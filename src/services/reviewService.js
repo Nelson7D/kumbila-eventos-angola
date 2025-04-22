@@ -4,9 +4,9 @@ import { toast } from '@/hooks/use-toast';
 
 export const reviewService = {
   /**
-   * Gets reviews for a specific space
+   * Get reviews for a specific space
    * @param {string} spaceId - ID of the space
-   * @returns {Promise<Array>}
+   * @returns {Promise<Array>} List of reviews
    */
   async getSpaceReviews(spaceId) {
     // Typecast supabase as any to call custom RPC functions
@@ -22,11 +22,11 @@ export const reviewService = {
   },
 
   /**
-   * Creates a new review
+   * Create a new review for a space
    * @param {string} spaceId - ID of the space
-   * @param {number} rating - Rating value (1-5)
-   * @param {string} comment - Review comment
-   * @returns {Promise<Object>}
+   * @param {number} rating - Rating (1-5)
+   * @param {string} comment - Optional comment
+   * @returns {Promise<Object>} Created review
    */
   async createReview(spaceId, rating, comment) {
     const { data, error } = await supabase
