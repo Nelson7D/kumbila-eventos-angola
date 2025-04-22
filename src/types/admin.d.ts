@@ -1,6 +1,6 @@
 
 declare interface DateRange {
-  from?: Date;
+  from: Date | undefined;
   to?: Date;
 }
 

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -300,12 +299,14 @@ const adminService = {
           avatar_url,
           created_at,
           status,
-          auth_users:auth.users!id(email),
           user_roles(role)
         `, { count: 'exact' });
       
+      // Adding a separate query to get email from auth.users
+      const { data: authUsersData } = await supabase.auth.admin.listUsers();
+      
       if (search) {
-        query = query.or(`full_name.ilike.%${search}%,auth_users.email.ilike.%${search}%`);
+        query = query.or(`full_name.ilike.%${search}%`);
       }
       
       const { data, error, count } = await query
@@ -314,16 +315,22 @@ const adminService = {
       
       if (error) throw error;
       
-      const users: AdminUser[] = data?.map(user => ({
-        id: user.id || '',
-        email: user.auth_users?.email || '',
-        full_name: user.full_name || '',
-        avatar_url: user.avatar_url,
-        user_role: user.user_roles?.[0]?.role || 'user',
-        created_at: user.created_at || '',
-        last_sign_in: user.last_sign_in_at,
-        status: (user.status as 'active' | 'inactive' | 'suspended') || 'active'
-      })) || [];
+      // Match profiles with auth users to get emails
+      const users: AdminUser[] = data?.map(user => {
+        // Find corresponding auth user for email
+        const authUser = authUsersData?.users?.find(au => au.id === user.id);
+        
+        return {
+          id: user.id || '',
+          email: authUser?.email || '',
+          full_name: user.full_name || '',
+          avatar_url: user.avatar_url,
+          user_role: user.user_roles?.[0]?.role || 'user',
+          created_at: user.created_at || '',
+          last_sign_in: authUser?.last_sign_in_at,
+          status: (user.status as 'active' | 'inactive' | 'suspended') || 'active'
+        };
+      }) || [];
       
       return { users, total: count || 0 };
     } catch (error) {
@@ -400,18 +407,17 @@ const adminService = {
   // Spaces management
   async getSpaces(filters: FilterOptions = {}, page = 1, limit = 10) {
     try {
-      let query = supabase
-        .from('spaces')
-        .select(`
-          id,
-          name,
-          location,
-          type,
-          status,
-          created_at,
-          price_per_day,
-          owner:profiles!owner_id(id, full_name)
-        `, { count: 'exact' });
+      // Create a base query
+      let query = supabase.from('spaces').select(`
+        id,
+        name,
+        location,
+        type,
+        status,
+        created_at,
+        price_per_day,
+        owner_id
+      `, { count: 'exact' });
       
       // Apply filters
       if (filters.type) {
@@ -420,34 +426,49 @@ const adminService = {
       if (filters.location) {
         query = query.ilike('location', `%${filters.location}%`);
       }
-      if (filters.owner) {
-        query = query.ilike('owner.full_name', `%${filters.owner}%`);
-      }
       if (filters.status) {
         query = query.eq('status', filters.status);
       }
       
-      const { data, error, count } = await query
+      // Get space data
+      const { data: spacesData, error, count } = await query
         .order('created_at', { ascending: false })
         .range((page - 1) * limit, page * limit - 1);
       
       if (error) throw error;
       
-      const spaces: AdminSpace[] = data?.map(space => ({
-        id: space.id || '',
-        name: space.name || '',
-        location: space.location || '',
-        type: space.type || '',
-        owner: {
-          id: space.owner?.id || '',
-          full_name: space.owner?.full_name || ''
-        },
-        status: (space.status as 'active' | 'pending' | 'blocked') || 'active',
-        created_at: space.created_at || '',
-        price_per_day: space.price_per_day
-      })) || [];
+      // Get owner data in a separate query
+      const ownerIds = spacesData?.map(space => space.owner_id) || [];
+      const { data: ownersData } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', ownerIds);
       
-      return { spaces, total: count || 0 };
+      // Map spaces with owner information
+      const spaces: AdminSpace[] = spacesData?.map(space => {
+        const owner = ownersData?.find(o => o.id === space.owner_id) || { id: '', full_name: 'Unknown' };
+        
+        return {
+          id: space.id || '',
+          name: space.name || '',
+          location: space.location || '',
+          type: space.type || '',
+          owner: {
+            id: owner.id,
+            full_name: owner.full_name
+          },
+          status: (space.status as 'active' | 'pending' | 'blocked') || 'active',
+          created_at: space.created_at || '',
+          price_per_day: space.price_per_day
+        };
+      }) || [];
+      
+      // Filter by owner name if specified
+      const filteredSpaces = filters.owner 
+        ? spaces.filter(space => space.owner.full_name.toLowerCase().includes(filters.owner.toLowerCase())) 
+        : spaces;
+      
+      return { spaces: filteredSpaces, total: count || 0 };
     } catch (error) {
       console.error('Error fetching spaces:', error);
       throw error;
@@ -490,6 +511,7 @@ const adminService = {
   // Reservations management
   async getReservations(filters: FilterOptions = {}, page = 1, limit = 10) {
     try {
+      // Create a base query to get reservation data
       let query = supabase
         .from('reservations')
         .select(`
@@ -499,8 +521,8 @@ const adminService = {
           status,
           total_price,
           created_at,
-          user:profiles!user_id(id, full_name),
-          space:spaces!space_id(id, name)
+          user_id,
+          space_id
         `, { count: 'exact' });
       
       // Apply filters
@@ -520,28 +542,49 @@ const adminService = {
         query = query.eq('user_id', filters.userId);
       }
       
-      const { data, error, count } = await query
+      // Get reservation data
+      const { data: reservationsData, error, count } = await query
         .order('start_datetime', { ascending: false })
         .range((page - 1) * limit, page * limit - 1);
       
       if (error) throw error;
       
-      const reservations: AdminReservation[] = data?.map(res => ({
-        id: res.id || '',
-        user: {
-          id: res.user?.id || '',
-          full_name: res.user?.full_name || ''
-        },
-        space: {
-          id: res.space?.id || '',
-          name: res.space?.name || ''
-        },
-        start_datetime: res.start_datetime || '',
-        end_datetime: res.end_datetime || '',
-        status: res.status || '',
-        total_price: res.total_price,
-        created_at: res.created_at || ''
-      })) || [];
+      // Get user and space data in separate queries
+      const userIds = reservationsData?.map(res => res.user_id) || [];
+      const spaceIds = reservationsData?.map(res => res.space_id) || [];
+      
+      const { data: usersData } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds);
+      
+      const { data: spacesData } = await supabase
+        .from('spaces')
+        .select('id, name')
+        .in('id', spaceIds);
+      
+      // Map reservations with user and space information
+      const reservations: AdminReservation[] = reservationsData?.map(res => {
+        const user = usersData?.find(u => u.id === res.user_id) || { id: '', full_name: 'Unknown' };
+        const space = spacesData?.find(s => s.id === res.space_id) || { id: '', name: 'Unknown' };
+        
+        return {
+          id: res.id || '',
+          user: {
+            id: user.id,
+            full_name: user.full_name
+          },
+          space: {
+            id: space.id,
+            name: space.name
+          },
+          start_datetime: res.start_datetime || '',
+          end_datetime: res.end_datetime || '',
+          status: res.status || '',
+          total_price: res.total_price,
+          created_at: res.created_at || ''
+        };
+      }) || [];
       
       return { reservations, total: count || 0 };
     } catch (error) {
@@ -589,6 +632,7 @@ const adminService = {
   // Payment management
   async getPayments(filters: FilterOptions = {}, page = 1, limit = 10) {
     try {
+      // Create a base query for payments
       let query = supabase
         .from('payments')
         .select(`
@@ -598,11 +642,7 @@ const adminService = {
           status,
           method,
           paid_at,
-          released_at,
-          reservation:reservations!reservation_id(
-            user:profiles!user_id(full_name),
-            space:spaces!space_id(name)
-          )
+          released_at
         `, { count: 'exact' });
       
       // Apply filters
@@ -619,29 +659,62 @@ const adminService = {
         query = query.lte('created_at', filters.endDate);
       }
       
-      const { data, error, count } = await query
+      // Get payment data
+      const { data: paymentsData, error, count } = await query
         .order('created_at', { ascending: false })
         .range((page - 1) * limit, page * limit - 1);
       
       if (error) throw error;
       
-      const payments: AdminPayment[] = data?.map(payment => ({
-        id: payment.id || '',
-        reservation_id: payment.reservation_id || '',
-        amount: payment.amount,
-        status: payment.status || '',
-        method: payment.method || '',
-        paid_at: payment.paid_at,
-        released_at: payment.released_at,
-        reservation: {
-          user: {
-            full_name: payment.reservation?.user?.full_name || ''
-          },
-          space: {
-            name: payment.reservation?.space?.name || ''
+      // Get reservation data in a separate query
+      const reservationIds = paymentsData?.map(payment => payment.reservation_id) || [];
+      const { data: reservationsData } = await supabase
+        .from('reservations')
+        .select(`
+          id,
+          user_id,
+          space_id
+        `)
+        .in('id', reservationIds);
+      
+      // Get user and space data
+      const userIds = reservationsData?.map(res => res.user_id) || [];
+      const spaceIds = reservationsData?.map(res => res.space_id) || [];
+      
+      const { data: usersData } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds);
+      
+      const { data: spacesData } = await supabase
+        .from('spaces')
+        .select('id, name')
+        .in('id', spaceIds);
+      
+      // Map payments with reservation, user, and space information
+      const payments: AdminPayment[] = paymentsData?.map(payment => {
+        const reservation = reservationsData?.find(res => res.id === payment.reservation_id);
+        const user = reservation ? usersData?.find(u => u.id === reservation.user_id) : null;
+        const space = reservation ? spacesData?.find(s => s.id === reservation.space_id) : null;
+        
+        return {
+          id: payment.id || '',
+          reservation_id: payment.reservation_id || '',
+          amount: payment.amount,
+          status: payment.status || '',
+          method: payment.method || '',
+          paid_at: payment.paid_at,
+          released_at: payment.released_at,
+          reservation: {
+            user: {
+              full_name: user?.full_name || 'Unknown'
+            },
+            space: {
+              name: space?.name || 'Unknown'
+            }
           }
-        }
-      })) || [];
+        };
+      }) || [];
       
       return { payments, total: count || 0 };
     } catch (error) {
@@ -725,6 +798,7 @@ const adminService = {
   // Reviews management
   async getReviews(filters: FilterOptions = {}, page = 1, limit = 10) {
     try {
+      // Create a base query for reviews
       let query = supabase
         .from('reviews')
         .select(`
@@ -732,8 +806,8 @@ const adminService = {
           rating,
           comment,
           created_at,
-          user:profiles!user_id(id, full_name),
-          space:spaces!space_id(id, name)
+          user_id,
+          space_id
         `, { count: 'exact' });
       
       // Apply filters
@@ -753,26 +827,47 @@ const adminService = {
         query = query.lte('created_at', filters.endDate);
       }
       
-      const { data, error, count } = await query
+      // Get review data
+      const { data: reviewsData, error, count } = await query
         .order('created_at', { ascending: false })
         .range((page - 1) * limit, page * limit - 1);
       
       if (error) throw error;
       
-      const reviews: AdminReview[] = data?.map(review => ({
-        id: review.id || '',
-        user: {
-          id: review.user?.id || '',
-          full_name: review.user?.full_name || ''
-        },
-        space: {
-          id: review.space?.id || '',
-          name: review.space?.name || ''
-        },
-        rating: review.rating,
-        comment: review.comment || '',
-        created_at: review.created_at || ''
-      })) || [];
+      // Get user and space data in separate queries
+      const userIds = reviewsData?.map(review => review.user_id) || [];
+      const spaceIds = reviewsData?.map(review => review.space_id) || [];
+      
+      const { data: usersData } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds);
+      
+      const { data: spacesData } = await supabase
+        .from('spaces')
+        .select('id, name')
+        .in('id', spaceIds);
+      
+      // Map reviews with user and space information
+      const reviews: AdminReview[] = reviewsData?.map(review => {
+        const user = usersData?.find(u => u.id === review.user_id) || { id: '', full_name: 'Unknown' };
+        const space = spacesData?.find(s => s.id === review.space_id) || { id: '', name: 'Unknown' };
+        
+        return {
+          id: review.id || '',
+          user: {
+            id: user.id,
+            full_name: user.full_name
+          },
+          space: {
+            id: space.id,
+            name: space.name
+          },
+          rating: review.rating,
+          comment: review.comment || '',
+          created_at: review.created_at || ''
+        };
+      }) || [];
       
       return { reviews, total: count || 0 };
     } catch (error) {

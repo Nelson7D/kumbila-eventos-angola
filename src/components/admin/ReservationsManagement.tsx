@@ -264,10 +264,7 @@ const ReservationsManagement = () => {
             <PopoverContent className="w-auto p-0" align="start">
               <CalendarComponent
                 mode="range"
-                selected={{
-                  from: dateRange.from,
-                  to: dateRange.to,
-                }}
+                selected={dateRange}
                 onSelect={handleDateRangeSelect}
                 initialFocus
               />
