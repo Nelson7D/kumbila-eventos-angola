@@ -341,7 +341,7 @@ const adminService = {
           avatar_url: profile.avatar_url,
           user_role: role,
           created_at: profile.created_at || '',
-          last_sign_in: authUser?.last_sign_in_at,
+          last_sign_in: authUser?.last_sign_in_at || '',
           status: (profile.status as 'active' | 'inactive' | 'suspended') || 'active'
         };
       }) || [];
