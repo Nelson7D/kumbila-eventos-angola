@@ -10,7 +10,7 @@ import {
   Calendar, 
   Receipt, 
   Star, 
-  FileBar, 
+  History, // Changed from FileBar to History
   Settings, 
   ChevronRight,
   LogOut,
@@ -66,7 +66,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       path: '/admin/reviews' 
     },
     { 
-      icon: <FileBar size={20} />, 
+      icon: <History size={20} />, // Changed icon
       label: 'Logs e Auditoria', 
       path: '/admin/logs' 
     },

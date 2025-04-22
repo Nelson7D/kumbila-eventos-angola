@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_logs: {
+        Row: {
+          action: string
+          admin_id: string | null
+          admin_name: string
+          created_at: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+        }
+        Insert: {
+          action: string
+          admin_id?: string | null
+          admin_name: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          admin_id?: string | null
+          admin_name?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+        }
+        Relationships: []
+      }
       checkins: {
         Row: {
           checkin_time: string | null
@@ -97,6 +130,7 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          status: string | null
           updated_at: string
         }
         Insert: {
@@ -104,6 +138,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id: string
+          status?: string | null
           updated_at?: string
         }
         Update: {
@@ -111,6 +146,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          status?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -207,6 +243,7 @@ export type Database = {
           name: string
           owner_id: string
           price_per_day: number
+          status: string | null
           type: string | null
           updated_at: string
         }
@@ -219,6 +256,7 @@ export type Database = {
           name: string
           owner_id: string
           price_per_day: number
+          status?: string | null
           type?: string | null
           updated_at?: string
         }
@@ -231,8 +269,30 @@ export type Database = {
           name?: string
           owner_id?: string
           price_per_day?: number
+          status?: string | null
           type?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
         }
         Relationships: []
       }

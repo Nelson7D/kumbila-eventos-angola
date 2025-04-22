@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { adminService, AuditLog } from '@/services/adminService';
 import { 
@@ -72,14 +71,11 @@ const AuditLogs = () => {
     endDate: null
   });
   
-  const [dateRange, setDateRange] = useState<{
-    from: Date | undefined;
-    to: Date | undefined;
-  }>({
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: undefined,
     to: undefined
   });
-  
+
   const logsPerPage = 15;
 
   const fetchLogs = async () => {
@@ -98,6 +94,10 @@ const AuditLogs = () => {
   useEffect(() => {
     fetchLogs();
   }, [currentPage, filters]);
+
+  const handleDateRangeSelect: SelectRangeEventHandler = (range) => {
+    setDateRange(range);
+  };
 
   useEffect(() => {
     if (dateRange.from) {
@@ -299,11 +299,8 @@ const AuditLogs = () => {
             <PopoverContent className="w-auto p-0" align="start">
               <CalendarComponent
                 mode="range"
-                selected={{
-                  from: dateRange.from,
-                  to: dateRange.to,
-                }}
-                onSelect={setDateRange}
+                selected={dateRange}
+                onSelect={handleDateRangeSelect}
                 initialFocus
               />
             </PopoverContent>

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -86,6 +85,7 @@ export interface AdminDashboardStats {
   totalRevenue: number;
   activeReservations: number;
   pendingSpaces: number;
+  completionRate: number;
   monthlyStats: Array<{
     month: string;
     reservations: number;
@@ -104,7 +104,7 @@ export interface AuditLog {
   created_at: string;
 }
 
-export const adminService = {
+const adminService = {
   // Check if the current user has admin role
   async checkAdminAccess() {
     try {
@@ -208,6 +208,17 @@ export const adminService = {
       
       // Get monthly stats for the last 12 months
       const monthlyStats = await this.getMonthlyStats();
+
+      // Get finished reservations
+      const { count: finishedReservations } = await supabase
+        .from('reservations')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'finalizada');
+      
+      // Calculate completion rate
+      const completionRate = totalReservations > 0
+        ? (finishedReservations / totalReservations) * 100
+        : 0;
       
       return {
         totalUsers: totalUsers || 0,
@@ -217,6 +228,7 @@ export const adminService = {
         totalRevenue,
         activeReservations: activeReservations || 0,
         pendingSpaces: pendingSpaces || 0,
+        completionRate,
         monthlyStats
       };
     } catch (error) {
@@ -278,6 +290,7 @@ export const adminService = {
         .from('profiles')
         .select(`
           *,
+          auth.users!inner(email),
           user_roles(role)
         `, { count: 'exact' });
       
@@ -293,7 +306,7 @@ export const adminService = {
       
       const users: AdminUser[] = data?.map(user => ({
         id: user.id,
-        email: user.email || '',
+        email: user.email?.email || '',
         full_name: user.full_name || '',
         avatar_url: user.avatar_url,
         user_role: user.user_roles?.[0]?.role || 'user',
@@ -855,3 +868,5 @@ export const adminService = {
     }
   }
 };
+
+export { adminService };

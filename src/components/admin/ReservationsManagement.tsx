@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { adminService, AdminReservation } from '@/services/adminService';
 import { 
@@ -79,14 +78,11 @@ const ReservationsManagement = () => {
     endDate: null
   });
   
-  const [dateRange, setDateRange] = useState<{
-    from: Date | undefined;
-    to: Date | undefined;
-  }>({
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: undefined,
     to: undefined
   });
-  
+
   const reservationsPerPage = 10;
 
   const fetchReservations = async () => {
@@ -105,6 +101,10 @@ const ReservationsManagement = () => {
   useEffect(() => {
     fetchReservations();
   }, [currentPage, filters]);
+
+  const handleDateRangeSelect: SelectRangeEventHandler = (range) => {
+    setDateRange(range);
+  };
 
   useEffect(() => {
     if (dateRange.from) {
@@ -268,7 +268,7 @@ const ReservationsManagement = () => {
                   from: dateRange.from,
                   to: dateRange.to,
                 }}
-                onSelect={setDateRange}
+                onSelect={handleDateRangeSelect}
                 initialFocus
               />
             </PopoverContent>

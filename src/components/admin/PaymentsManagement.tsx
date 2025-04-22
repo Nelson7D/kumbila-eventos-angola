@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { adminService, AdminPayment } from '@/services/adminService';
 import { 
@@ -77,14 +76,11 @@ const PaymentsManagement = () => {
     endDate: null
   });
   
-  const [dateRange, setDateRange] = useState<{
-    from: Date | undefined;
-    to: Date | undefined;
-  }>({
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: undefined,
     to: undefined
   });
-  
+
   const paymentsPerPage = 10;
 
   const fetchPayments = async () => {
@@ -248,6 +244,10 @@ const PaymentsManagement = () => {
     }
   };
 
+  const handleDateRangeSelect: SelectRangeEventHandler = (range) => {
+    setDateRange(range);
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -326,7 +326,7 @@ const PaymentsManagement = () => {
                   from: dateRange.from,
                   to: dateRange.to,
                 }}
-                onSelect={setDateRange}
+                onSelect={handleDateRangeSelect}
                 initialFocus
               />
             </PopoverContent>
