@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AdminProvider } from "@/contexts/AdminContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 import Index from "./pages/Index";
@@ -18,6 +19,7 @@ import UserProfile from "./pages/UserProfile";
 import BookingPage from "./pages/BookingPage";
 import ServicesPage from "./pages/ServicesPage";
 import ServiceRegister from "./pages/ServiceRegister";
+import AdminDashboard from "./pages/AdminDashboard";
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
 import ResetPassword from "./pages/ResetPassword";
@@ -43,69 +45,74 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <AuthProvider>
-              <Routes>
-                {/* Rotas públicas */}
-                <Route path="/" element={<Index />} />
-                <Route path="/espacos" element={<SpacesList />} />
-                <Route path="/espaco/:id" element={<SpaceDetail />} />
-                <Route path="/proprietario/:id" element={<SpaceOwner />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/auth/reset-password" element={<ResetPassword />} />
-                
-                {/* Rotas protegidas */}
-                <Route 
-                  path="/dashboard/usuario" 
-                  element={
-                    <ProtectedRoute>
-                      <UserDashboard />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/dashboard/proprietario" 
-                  element={
-                    <ProtectedRoute>
-                      <OwnerDashboard />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/perfil/:id" 
-                  element={
-                    <ProtectedRoute>
-                      <UserProfile />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/reserva/:id" 
-                  element={
-                    <ProtectedRoute>
-                      <BookingPage />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/servicos" 
-                  element={
-                    <ProtectedRoute>
-                      <ServicesPage />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/servicos/cadastrar" 
-                  element={
-                    <ProtectedRoute>
-                      <ServiceRegister />
-                    </ProtectedRoute>
-                  } 
-                />
-                
-                {/* Rota de fallback */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+              <AdminProvider>
+                <Routes>
+                  {/* Rotas públicas */}
+                  <Route path="/" element={<Index />} />
+                  <Route path="/espacos" element={<SpacesList />} />
+                  <Route path="/espaco/:id" element={<SpaceDetail />} />
+                  <Route path="/proprietario/:id" element={<SpaceOwner />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/auth/callback" element={<AuthCallback />} />
+                  <Route path="/auth/reset-password" element={<ResetPassword />} />
+                  
+                  {/* Rotas protegidas */}
+                  <Route 
+                    path="/dashboard/usuario" 
+                    element={
+                      <ProtectedRoute>
+                        <UserDashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/dashboard/proprietario" 
+                    element={
+                      <ProtectedRoute>
+                        <OwnerDashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/perfil/:id" 
+                    element={
+                      <ProtectedRoute>
+                        <UserProfile />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/reserva/:id" 
+                    element={
+                      <ProtectedRoute>
+                        <BookingPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/servicos" 
+                    element={
+                      <ProtectedRoute>
+                        <ServicesPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/servicos/cadastrar" 
+                    element={
+                      <ProtectedRoute>
+                        <ServiceRegister />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  
+                  {/* Rotas de administração */}
+                  <Route path="/admin/*" element={<AdminDashboard />} />
+                  
+                  {/* Rota de fallback */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </AdminProvider>
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>
