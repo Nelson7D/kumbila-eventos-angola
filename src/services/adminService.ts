@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -327,22 +326,25 @@ const adminService = {
       
       // Match profiles with auth users and user roles
       const users: AdminUser[] = profilesData?.map(profile => {
-        // Find corresponding auth user for email
-        const authUser = authUsersData?.users?.find(au => au.id === profile.id);
+        // Find corresponding auth user for email - ensure we have a valid profile.id
+        const profileId = profile?.id || '';
+        
+        // Make sure authUsersData is defined before searching through it
+        const authUser = authUsersData?.users?.find(au => au.id === profileId);
         
         // Find user role
-        const userRole = userRolesData?.find(ur => ur.user_id === profile.id);
-        const role = userRole ? userRole.role : 'user';
+        const userRole = userRolesData?.find(ur => ur?.user_id === profileId);
+        const role = userRole?.role || 'user';
         
         return {
-          id: profile.id || '',
+          id: profileId,
           email: authUser?.email || '',
-          full_name: profile.full_name || '',
-          avatar_url: profile.avatar_url,
+          full_name: profile?.full_name || '',
+          avatar_url: profile?.avatar_url,
           user_role: role,
-          created_at: profile.created_at || '',
+          created_at: profile?.created_at || '',
           last_sign_in: authUser?.last_sign_in_at || '',
-          status: (profile.status as 'active' | 'inactive' | 'suspended') || 'active'
+          status: (profile?.status as 'active' | 'inactive' | 'suspended') || 'active'
         };
       }) || [];
       
