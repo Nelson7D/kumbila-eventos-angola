@@ -71,7 +71,7 @@ const AuditLogs = () => {
     endDate: null
   });
   
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+  const [dateRange, setDateRange] = useState<DateRange>({
     from: undefined,
     to: undefined
   });
@@ -95,7 +95,7 @@ const AuditLogs = () => {
     fetchLogs();
   }, [currentPage, filters]);
 
-  const handleDateRangeSelect: SelectRangeEventHandler = (range) => {
+  const handleDateRangeSelect = (range: DateRange) => {
     setDateRange(range);
   };
 

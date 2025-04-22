@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -104,6 +105,11 @@ export interface AuditLog {
   created_at: string;
 }
 
+// Type for filter objects
+interface FilterOptions {
+  [key: string]: any;
+}
+
 const adminService = {
   // Check if the current user has admin role
   async checkAdminAccess() {
@@ -165,7 +171,7 @@ const adminService = {
   },
   
   // Dashboard stats
-  async getDashboardStats() {
+  async getDashboardStats(): Promise<AdminDashboardStats> {
     try {
       // Get total users
       const { count: totalUsers } = await supabase
@@ -217,7 +223,7 @@ const adminService = {
       
       // Calculate completion rate
       const completionRate = totalReservations > 0
-        ? (finishedReservations / totalReservations) * 100
+        ? ((finishedReservations || 0) / totalReservations) * 100
         : 0;
       
       return {
@@ -289,13 +295,17 @@ const adminService = {
       let query = supabase
         .from('profiles')
         .select(`
-          *,
-          auth.users!inner(email),
+          id,
+          full_name,
+          avatar_url,
+          created_at,
+          status,
+          auth_users:auth.users(email),
           user_roles(role)
         `, { count: 'exact' });
       
       if (search) {
-        query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
+        query = query.or(`full_name.ilike.%${search}%,auth_users.email.ilike.%${search}%`);
       }
       
       const { data, error, count } = await query
@@ -306,13 +316,13 @@ const adminService = {
       
       const users: AdminUser[] = data?.map(user => ({
         id: user.id,
-        email: user.email?.email || '',
+        email: user.auth_users?.email || '',
         full_name: user.full_name || '',
         avatar_url: user.avatar_url,
         user_role: user.user_roles?.[0]?.role || 'user',
         created_at: user.created_at,
         last_sign_in: user.last_sign_in_at,
-        status: user.status || 'active'
+        status: user.status as 'active' | 'inactive' | 'suspended' || 'active'
       })) || [];
       
       return { users, total: count || 0 };
@@ -388,13 +398,19 @@ const adminService = {
   },
   
   // Spaces management
-  async getSpaces(filters = {}, page = 1, limit = 10) {
+  async getSpaces(filters: FilterOptions = {}, page = 1, limit = 10) {
     try {
       let query = supabase
         .from('spaces')
         .select(`
-          *,
-          owner:profiles!spaces_owner_id_fkey(id, full_name)
+          id,
+          name,
+          location,
+          type,
+          status,
+          created_at,
+          price_per_day,
+          owner:profiles(id, full_name)
         `, { count: 'exact' });
       
       // Apply filters
@@ -423,10 +439,10 @@ const adminService = {
         location: space.location || '',
         type: space.type || '',
         owner: {
-          id: space.owner.id,
-          full_name: space.owner.full_name || ''
+          id: space.owner?.id || '',
+          full_name: space.owner?.full_name || ''
         },
-        status: space.status || 'active',
+        status: (space.status as 'active' | 'pending' | 'blocked') || 'active',
         created_at: space.created_at,
         price_per_day: space.price_per_day
       })) || [];
@@ -472,14 +488,19 @@ const adminService = {
   },
   
   // Reservations management
-  async getReservations(filters = {}, page = 1, limit = 10) {
+  async getReservations(filters: FilterOptions = {}, page = 1, limit = 10) {
     try {
       let query = supabase
         .from('reservations')
         .select(`
-          *,
-          user:profiles!reservations_user_id_fkey(id, full_name),
-          space:spaces!reservations_space_id_fkey(id, name)
+          id,
+          start_datetime,
+          end_datetime,
+          status,
+          total_price,
+          created_at,
+          user:profiles(id, full_name),
+          space:spaces(id, name)
         `, { count: 'exact' });
       
       // Apply filters
@@ -508,12 +529,12 @@ const adminService = {
       const reservations: AdminReservation[] = data?.map(res => ({
         id: res.id,
         user: {
-          id: res.user.id,
-          full_name: res.user.full_name || ''
+          id: res.user?.id || '',
+          full_name: res.user?.full_name || ''
         },
         space: {
-          id: res.space.id,
-          name: res.space.name
+          id: res.space?.id || '',
+          name: res.space?.name || ''
         },
         start_datetime: res.start_datetime,
         end_datetime: res.end_datetime,
@@ -566,15 +587,21 @@ const adminService = {
   },
   
   // Payment management
-  async getPayments(filters = {}, page = 1, limit = 10) {
+  async getPayments(filters: FilterOptions = {}, page = 1, limit = 10) {
     try {
       let query = supabase
         .from('payments')
         .select(`
-          *,
-          reservation:reservations!payments_reservation_id_fkey(
-            user:profiles!reservations_user_id_fkey(full_name),
-            space:spaces!reservations_space_id_fkey(name)
+          id,
+          reservation_id,
+          amount,
+          status,
+          method,
+          paid_at,
+          released_at,
+          reservation:reservations(
+            user:profiles(full_name),
+            space:spaces(name)
           )
         `, { count: 'exact' });
       
@@ -696,14 +723,17 @@ const adminService = {
   },
   
   // Reviews management
-  async getReviews(filters = {}, page = 1, limit = 10) {
+  async getReviews(filters: FilterOptions = {}, page = 1, limit = 10) {
     try {
       let query = supabase
         .from('reviews')
         .select(`
-          *,
-          user:profiles!reviews_user_id_fkey(id, full_name),
-          space:spaces!reviews_space_id_fkey(id, name)
+          id,
+          rating,
+          comment,
+          created_at,
+          user:profiles(id, full_name),
+          space:spaces(id, name)
         `, { count: 'exact' });
       
       // Apply filters
@@ -732,12 +762,12 @@ const adminService = {
       const reviews: AdminReview[] = data?.map(review => ({
         id: review.id,
         user: {
-          id: review.user.id,
-          full_name: review.user.full_name || ''
+          id: review.user?.id || '',
+          full_name: review.user?.full_name || ''
         },
         space: {
-          id: review.space.id,
-          name: review.space.name
+          id: review.space?.id || '',
+          name: review.space?.name || ''
         },
         rating: review.rating,
         comment: review.comment || '',
@@ -785,7 +815,7 @@ const adminService = {
   },
   
   // Audit logs
-  async getAuditLogs(filters = {}, page = 1, limit = 10) {
+  async getAuditLogs(filters: FilterOptions = {}, page = 1, limit = 10) {
     try {
       let query = supabase
         .from('admin_logs')
@@ -824,7 +854,7 @@ const adminService = {
   },
   
   // Export data
-  async exportData(type: 'users' | 'spaces' | 'reservations' | 'payments', filters = {}) {
+  async exportData(type: 'users' | 'spaces' | 'reservations' | 'payments', filters: FilterOptions = {}) {
     try {
       let data;
       
