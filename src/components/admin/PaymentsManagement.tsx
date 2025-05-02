@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { adminService, AdminPayment } from '@/services/adminService';
+import { adminService } from '@/services/adminService';
 import { 
   Table, 
   TableBody, 
@@ -55,11 +55,13 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+// Importando o tipo DateRange
+import type { DateRange } from '@/types/admin';
 
 const PaymentsManagement = () => {
-  const [payments, setPayments] = useState<AdminPayment[]>([]);
+  const [payments, setPayments] = useState([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [selectedPayment, setSelectedPayment] = useState<AdminPayment | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState(null);
   const [showReleaseDialog, setShowReleaseDialog] = useState<boolean>(false);
   const [showResolveDialog, setShowResolveDialog] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -165,12 +167,12 @@ const PaymentsManagement = () => {
     }
   };
 
-  const openReleaseDialog = (payment: AdminPayment) => {
+  const openReleaseDialog = (payment: any) => {
     setSelectedPayment(payment);
     setShowReleaseDialog(true);
   };
 
-  const openResolveDialog = (payment: AdminPayment) => {
+  const openResolveDialog = (payment: any) => {
     setSelectedPayment(payment);
     setShowResolveDialog(true);
   };

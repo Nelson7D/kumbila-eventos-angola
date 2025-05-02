@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { adminService, AdminReview } from '@/services/adminService';
+import { adminService } from '@/services/adminService';
 import { 
   Table, 
   TableBody, 
@@ -55,6 +56,8 @@ import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+// Importando o tipo DateRange
+import type { DateRange } from '@/types/admin';
 
 const ReviewsManagement = () => {
   const [reviews, setReviews] = useState<AdminReview[]>([]);

@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { adminService, AuditLog } from '@/services/adminService';
+import { adminService } from '@/services/adminService';
 import { 
   Table, 
   TableBody, 
@@ -49,6 +50,8 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from '@/components/ui/badge';
 import { Input } from "@/components/ui/input";
+// Importando o tipo DateRange
+import type { DateRange } from '@/types/admin';
 
 const AuditLogs = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);

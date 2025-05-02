@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { adminService, AdminReservation } from '@/services/adminService';
+import { adminService } from '@/services/adminService';
 import { 
   Table, 
   TableBody, 
@@ -55,11 +55,12 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format, isAfter, isBefore, isEqual } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from "@/components/ui/textarea";
+import type { DateRange } from '@/types/admin';
 
 const ReservationsManagement = () => {
-  const [reservations, setReservations] = useState<AdminReservation[]>([]);
+  const [reservations, setReservations] = useState([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [selectedReservation, setSelectedReservation] = useState<AdminReservation | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState(null);
   const [showCancelDialog, setShowCancelDialog] = useState<boolean>(false);
   const [cancelReason, setCancelReason] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -161,7 +162,7 @@ const ReservationsManagement = () => {
     }
   };
 
-  const openCancelDialog = (reservation: AdminReservation) => {
+  const openCancelDialog = (reservation: any) => {
     setSelectedReservation(reservation);
     setShowCancelDialog(true);
   };
