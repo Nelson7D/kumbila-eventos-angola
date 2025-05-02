@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { adminService } from '@/services/adminService';
 import { 
@@ -50,8 +49,20 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from '@/components/ui/badge';
 import { Input } from "@/components/ui/input";
-// Importando o tipo DateRange
+// Importando os tipos necessários
 import type { DateRange } from '@/types/admin';
+
+// Definindo o tipo AuditLog já que não está disponível na importação
+interface AuditLog {
+  id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  details: any;
+  admin_id: string;
+  admin_name: string;
+  created_at: string;
+}
 
 const AuditLogs = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);

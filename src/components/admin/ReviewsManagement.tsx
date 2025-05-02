@@ -59,6 +59,25 @@ import { Input } from "@/components/ui/input";
 // Importando o tipo DateRange
 import type { DateRange } from '@/types/admin';
 
+// Definindo o tipo AdminReview já que não está disponível na importação
+interface AdminReview {
+  id: string;
+  user: {
+    id: string;
+    full_name: string;
+  };
+  space: {
+    id: string;
+    name: string;
+    owner?: {
+      full_name: string;
+    };
+  };
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
 const ReviewsManagement = () => {
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
