@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
-import { adminService, AdminUser } from '@/services/adminService';
+import { adminService } from '@/services/adminService';
+import { AdminUser } from '@/types/admin';
 import { 
   Table, 
   TableBody, 
@@ -61,9 +61,9 @@ const UsersManagement = () => {
   const fetchUsers = async (search: string = searchInput) => {
     setIsLoading(true);
     try {
-      const { users, total } = await adminService.getUsers(search, currentPage, usersPerPage);
-      setUsers(users);
-      setTotalUsers(total);
+      const result = await adminService.getUsers(search, currentPage, usersPerPage);
+      setUsers(result.data);
+      setTotalUsers(result.total);
     } catch (error) {
       console.error('Error loading users:', error);
     } finally {

@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
-import { adminService, AdminSpace } from '@/services/adminService';
+import { adminService } from '@/services/adminService';
+import { AdminSpace, FilterOptions } from '@/types/admin';
 import { 
   Table, 
   TableBody, 
@@ -59,12 +59,7 @@ const SpacesManagement = () => {
   const [newStatus, setNewStatus] = useState<'active' | 'pending' | 'blocked'>('active');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalSpaces, setTotalSpaces] = useState<number>(0);
-  const [filters, setFilters] = useState<{
-    type: string;
-    location: string;
-    owner: string;
-    status: string;
-  }>({
+  const [filters, setFilters] = useState<FilterOptions>({
     type: '',
     location: '',
     owner: '',
@@ -76,9 +71,9 @@ const SpacesManagement = () => {
   const fetchSpaces = async () => {
     setIsLoading(true);
     try {
-      const { spaces, total } = await adminService.getSpaces(filters, currentPage, spacesPerPage);
-      setSpaces(spaces);
-      setTotalSpaces(total);
+      const result = await adminService.getSpaces(filters, currentPage, spacesPerPage);
+      setSpaces(result.data);
+      setTotalSpaces(result.total);
     } catch (error) {
       console.error('Error loading spaces:', error);
     } finally {

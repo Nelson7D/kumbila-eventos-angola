@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { adminService } from '@/services/adminService';
+import { FilterOptions } from '@/types/admin';
 import { 
   Table, 
   TableBody, 
@@ -59,19 +60,14 @@ import { Badge } from '@/components/ui/badge';
 import type { DateRange } from '@/types/admin';
 
 const PaymentsManagement = () => {
-  const [payments, setPayments] = useState([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [selectedPayment, setSelectedPayment] = useState<any | null>(null);
   const [showReleaseDialog, setShowReleaseDialog] = useState<boolean>(false);
   const [showResolveDialog, setShowResolveDialog] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPayments, setTotalPayments] = useState<number>(0);
-  const [filters, setFilters] = useState<{
-    status: string;
-    method: string;
-    startDate: string | null;
-    endDate: string | null;
-  }>({
+  const [filters, setFilters] = useState<FilterOptions>({
     status: '',
     method: '',
     startDate: null,
@@ -88,9 +84,9 @@ const PaymentsManagement = () => {
   const fetchPayments = async () => {
     setIsLoading(true);
     try {
-      const { payments, total } = await adminService.getPayments(filters, currentPage, paymentsPerPage);
-      setPayments(payments);
-      setTotalPayments(total);
+      const result = await adminService.getPayments(filters, currentPage, paymentsPerPage);
+      setPayments(result.data);
+      setTotalPayments(result.total);
     } catch (error) {
       console.error('Error loading payments:', error);
     } finally {

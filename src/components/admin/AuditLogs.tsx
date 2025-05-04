@@ -50,7 +50,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Input } from "@/components/ui/input";
 // Importando os tipos necessários
-import type { DateRange } from '@/types/admin';
+import type { DateRange, AuditLog, FilterOptions } from '@/types/admin';
 
 // Definindo o tipo AuditLog já que não está disponível na importação
 interface AuditLog {
@@ -71,13 +71,7 @@ const AuditLogs = () => {
   const [showDetailsDialog, setShowDetailsDialog] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalLogs, setTotalLogs] = useState<number>(0);
-  const [filters, setFilters] = useState<{
-    action: string;
-    entityType: string;
-    adminId: string;
-    startDate: string | null;
-    endDate: string | null;
-  }>({
+  const [filters, setFilters] = useState<FilterOptions>({
     action: '',
     entityType: '',
     adminId: '',
@@ -95,9 +89,9 @@ const AuditLogs = () => {
   const fetchLogs = async () => {
     setIsLoading(true);
     try {
-      const { logs, total } = await adminService.getAuditLogs(filters, currentPage, logsPerPage);
-      setLogs(logs);
-      setTotalLogs(total);
+      const result = await adminService.getAuditLogs(filters, currentPage, logsPerPage);
+      setLogs(result.data);
+      setTotalLogs(result.total);
     } catch (error) {
       console.error('Error loading audit logs:', error);
     } finally {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { adminService } from '@/services/adminService';
 import { 
@@ -86,13 +85,7 @@ const ReviewsManagement = () => {
   const [deleteReason, setDeleteReason] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalReviews, setTotalReviews] = useState<number>(0);
-  const [filters, setFilters] = useState<{
-    spaceId: string;
-    userId: string;
-    rating: string;
-    startDate: string | null;
-    endDate: string | null;
-  }>({
+  const [filters, setFilters] = useState<FilterOptions>({
     spaceId: '',
     userId: '',
     rating: '',
@@ -114,9 +107,9 @@ const ReviewsManagement = () => {
   const fetchReviews = async () => {
     setIsLoading(true);
     try {
-      const { reviews, total } = await adminService.getReviews(filters, currentPage, reviewsPerPage);
-      setReviews(reviews);
-      setTotalReviews(total);
+      const result = await adminService.getReviews(filters, currentPage, reviewsPerPage);
+      setReviews(result.data);
+      setTotalReviews(result.total);
     } catch (error) {
       console.error('Error loading reviews:', error);
     } finally {

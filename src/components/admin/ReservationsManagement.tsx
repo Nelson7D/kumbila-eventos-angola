@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { adminService } from '@/services/adminService';
-import { FilterOptions } from '@/types/admin';
+import { FilterOptions, DateRange } from '@/types/admin';
 import { 
   Table, 
   TableBody, 
@@ -56,12 +56,11 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format, isAfter, isBefore, isEqual } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from "@/components/ui/textarea";
-import type { DateRange } from '@/types/admin';
 
 const ReservationsManagement = () => {
-  const [reservations, setReservations] = useState([]);
+  const [reservations, setReservations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [selectedReservation, setSelectedReservation] = useState(null);
+  const [selectedReservation, setSelectedReservation] = useState<any | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState<boolean>(false);
   const [cancelReason, setCancelReason] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);

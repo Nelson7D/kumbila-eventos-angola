@@ -1,929 +1,834 @@
 
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import { createClient } from '@supabase/supabase-js';
 import { 
+  AdminDashboardStats, 
   AdminUser, 
   AdminSpace, 
-  AdminDashboardStats, 
   FilterOptions, 
   AuditLog, 
   PaginatedResult 
 } from '@/types/admin';
 
+// Use environment variables to configure Supabase client
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 /**
- * Service for admin operations
+ * Admin service for handling admin operations
  */
-export const adminService = {
+class AdminService {
   /**
    * Check if the current user has admin access
-   * @returns {Promise<boolean>} Whether the user has admin access
+   * @returns {Promise<boolean>} True if user has admin access
    */
   async checkAdminAccess(): Promise<boolean> {
     try {
-      // Get current user ID
       const { data: { user } } = await supabase.auth.getUser();
       
-      if (!user) return false;
-      
-      // Check if user has admin role
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .single();
-      
-      if (error) {
-        console.error('Error checking admin role:', error);
+      if (!user) {
         return false;
       }
       
-      return data?.role === 'admin';
+      const { data: roles, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin');
+      
+      if (error || !roles || roles.length === 0) {
+        return false;
+      }
+      
+      return true;
     } catch (error) {
       console.error('Error checking admin access:', error);
       return false;
     }
-  },
-
+  }
+  
   /**
    * Get dashboard statistics
    * @returns {Promise<AdminDashboardStats>} Dashboard statistics
    */
   async getDashboardStats(): Promise<AdminDashboardStats> {
     try {
-      const [usersResponse, spacesResponse, reservationsResponse, paymentsResponse] = await Promise.all([
-        supabase.from('profiles').select('*'),
-        supabase.from('spaces').select('*'),
-        supabase.from('reservations').select('*'),
-        supabase.from('payments').select('*')
-      ]);
+      // Get total users
+      const { count: totalUsers } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
       
-      if (usersResponse.error) throw usersResponse.error;
-      if (spacesResponse.error) throw spacesResponse.error;
-      if (reservationsResponse.error) throw reservationsResponse.error;
-      if (paymentsResponse.error) throw paymentsResponse.error;
+      // Get total spaces
+      const { count: totalSpaces } = await supabase
+        .from('spaces')
+        .select('*', { count: 'exact', head: true });
       
-      const users = usersResponse.data || [];
-      const spaces = spacesResponse.data || [];
-      const reservations = reservationsResponse.data || [];
-      const payments = paymentsResponse.data || [];
+      // Get pending spaces
+      const { count: pendingSpaces } = await supabase
+        .from('spaces')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
       
-      const totalRevenue = payments
-        .filter(payment => payment.status === 'pago')
-        .reduce((sum, payment) => sum + Number(payment.amount), 0);
+      // Get total reservations
+      const { count: totalReservations } = await supabase
+        .from('reservations')
+        .select('*', { count: 'exact', head: true });
       
-      const activeReservations = reservations.filter(
-        res => res.status === 'confirmada' || res.status === 'em_andamento'
-      ).length;
+      // Get active reservations
+      const { count: activeReservations } = await supabase
+        .from('reservations')
+        .select('*', { count: 'exact', head: true })
+        .in('status', ['confirmada', 'em_andamento']);
       
-      const pendingSpaces = spaces.filter(space => space.status === 'pending').length;
+      // Get total payments
+      const { count: totalPayments } = await supabase
+        .from('payments')
+        .select('*', { count: 'exact', head: true });
       
-      const completedReservations = reservations.filter(res => res.status === 'finalizada').length;
-      const completionRate = reservations.length > 0 
-        ? (completedReservations / reservations.length) * 100 
-        : 0;
-        
-      // Generate monthly statistics for the last 6 months
-      const now = new Date();
+      // Get total revenue
+      const { data: revenueData } = await supabase
+        .from('payments')
+        .select('amount')
+        .eq('status', 'pago');
+      
+      const totalRevenue = revenueData?.reduce((sum, payment) => sum + parseFloat(payment.amount), 0) || 0;
+      
+      // Get completion rate
+      const { count: completedReservations } = await supabase
+        .from('reservations')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'finalizada');
+      
+      const completionRate = totalReservations > 0 ? (completedReservations / totalReservations) * 100 : 0;
+      
+      // Get monthly stats for the last 12 months
       const monthlyStats = [];
+      const today = new Date();
       
-      for (let i = 5; i >= 0; i--) {
-        const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthName = month.toLocaleString('default', { month: 'short' });
+      for (let i = 11; i >= 0; i--) {
+        const month = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const nextMonth = new Date(today.getFullYear(), today.getMonth() - i + 1, 0);
         
-        const monthReservations = reservations.filter(res => {
-          const resDate = new Date(res.created_at);
-          return resDate.getMonth() === month.getMonth() && 
-                 resDate.getFullYear() === month.getFullYear();
-        });
+        const startDate = month.toISOString().split('T')[0];
+        const endDate = nextMonth.toISOString().split('T')[0];
         
-        const monthRevenue = payments
-          .filter(payment => {
-            if (payment.status !== 'pago' || !payment.paid_at) return false;
-            const payDate = new Date(payment.paid_at);
-            return payDate.getMonth() === month.getMonth() && 
-                   payDate.getFullYear() === month.getFullYear();
-          })
-          .reduce((sum, payment) => sum + Number(payment.amount), 0);
+        const { count: reservations } = await supabase
+          .from('reservations')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', startDate)
+          .lte('created_at', endDate);
+        
+        const { data: payments } = await supabase
+          .from('payments')
+          .select('amount')
+          .eq('status', 'pago')
+          .gte('created_at', startDate)
+          .lte('created_at', endDate);
+        
+        const revenue = payments?.reduce((sum, payment) => sum + parseFloat(payment.amount), 0) || 0;
         
         monthlyStats.push({
-          month: monthName,
-          reservations: monthReservations.length,
-          revenue: monthRevenue
+          month: month.toLocaleString('default', { month: 'short' }),
+          reservations,
+          revenue
         });
       }
       
       return {
-        totalUsers: users.length,
-        totalSpaces: spaces.length,
-        totalReservations: reservations.length,
-        totalPayments: payments.filter(p => p.status === 'pago').length,
+        totalUsers: totalUsers || 0,
+        totalSpaces: totalSpaces || 0,
+        totalReservations: totalReservations || 0,
+        totalPayments: totalPayments || 0,
         totalRevenue,
-        activeReservations,
-        pendingSpaces,
+        activeReservations: activeReservations || 0,
+        pendingSpaces: pendingSpaces || 0,
         completionRate,
         monthlyStats
       };
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
-      toast({
-        title: "Erro ao carregar estatísticas",
-        description: error.message || "Ocorreu um erro ao carregar as estatísticas do dashboard.",
-        variant: "destructive",
-      });
-      throw error;
+      console.error('Error getting dashboard stats:', error);
+      return {
+        totalUsers: 0,
+        totalSpaces: 0,
+        totalReservations: 0,
+        totalPayments: 0,
+        totalRevenue: 0,
+        activeReservations: 0,
+        pendingSpaces: 0,
+        completionRate: 0,
+        monthlyStats: []
+      };
     }
-  },
-
+  }
+  
   /**
-   * Get all users
-   * @param {string} search - Search term
-   * @param {number} page - Page number
-   * @param {number} pageSize - Number of users per page
-   * @returns {Promise<PaginatedResult<AdminUser>>} Object with users and total count
+   * Get users with pagination
+   * @param {string} searchTerm Search term for filtering users
+   * @param {number} page Page number
+   * @param {number} pageSize Number of users per page
+   * @returns {Promise<{users: AdminUser[], total: number}>} Users and total count
    */
-  async getUsers(search: string = '', page: number = 1, pageSize: number = 10): Promise<PaginatedResult<AdminUser>> {
+  async getUsers(searchTerm = '', page = 1, pageSize = 10): Promise<PaginatedResult<AdminUser>> {
     try {
-      const startIndex = (page - 1) * pageSize;
+      const offset = (page - 1) * pageSize;
+      
       let query = supabase
         .from('profiles')
-        .select('*', { count: 'exact' })
-        .ilike('full_name', `%${search}%`)
-        .order('created_at', { ascending: false })
-        .range(startIndex, startIndex + pageSize - 1);
-  
-      const { data, error, count } = await query;
-  
-      if (error) throw error;
-  
-      const users = data || [];
-      const total = count || 0;
-  
-      return { data: users as AdminUser[], total };
+        .select(`
+          id,
+          full_name,
+          avatar_url,
+          status,
+          created_at,
+          auth.users!inner(email, last_sign_in_at),
+          user_roles(role)
+        `, { count: 'exact' })
+        .range(offset, offset + pageSize - 1);
+      
+      if (searchTerm) {
+        query = query.or(`full_name.ilike.%${searchTerm}%,auth.users.email.ilike.%${searchTerm}%`);
+      }
+      
+      const { data, count, error } = await query;
+      
+      if (error) {
+        throw error;
+      }
+      
+      const formattedUsers: AdminUser[] = data.map(profile => {
+        const user = profile.users;
+        const roles = profile.user_roles || [];
+        const userRole = roles.length > 0 ? roles[0].role : 'user';
+        
+        return {
+          id: profile.id,
+          email: user?.email || '',
+          full_name: profile.full_name,
+          avatar_url: profile.avatar_url,
+          user_role: userRole,
+          status: profile.status || 'active',
+          created_at: profile.created_at,
+          last_sign_in: user?.last_sign_in_at
+        };
+      });
+      
+      return {
+        data: formattedUsers,
+        total: count || 0
+      };
     } catch (error) {
-      console.error('Error fetching users:', error);
-      toast({
-        title: "Erro ao carregar usuários",
-        description: error.message || "Ocorreu um erro ao carregar a lista de usuários.",
-        variant: "destructive",
-      });
-      throw error;
+      console.error('Error loading users:', error);
+      return {
+        data: [],
+        total: 0
+      };
     }
-  },
-
+  }
+  
   /**
-   * Update user status
-   * @param {string} userId - User ID
-   * @param {string} status - New status
-   * @returns {Promise<Object>} Updated user
+   * Get spaces with pagination and filtering
+   * @param {FilterOptions} filters Filters for spaces
+   * @param {number} page Page number
+   * @param {number} pageSize Number of spaces per page
+   * @returns {Promise<{spaces: AdminSpace[], total: number}>} Spaces and total count
    */
-  async updateUserStatus(userId: string, status: string): Promise<any> {
+  async getSpaces(filters: FilterOptions = {}, page = 1, pageSize = 10): Promise<PaginatedResult<AdminSpace>> {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ status })
-        .eq('id', userId)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      await this.logAdminAction({
-        entityId: userId,
-        entityType: 'user',
-        action: `update_status_to_${status}`,
-      });
-      
-      toast({
-        title: "Status atualizado",
-        description: `O status do usuário foi alterado para ${status}.`,
-      });
-      
-      return data;
-    } catch (error) {
-      console.error('Error updating user status:', error);
-      toast({
-        title: "Erro ao atualizar status",
-        description: error.message || "Ocorreu um erro ao atualizar o status do usuário.",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  },
-
-  /**
-   * Delete user
-   * @param {string} userId - User ID
-   * @returns {Promise<void>}
-   */
-  async deleteUser(userId: string): Promise<void> {
-    try {
-      // This requires admin privileges
-      const { error } = await supabase.auth.admin.deleteUser(userId);
-      
-      if (error) throw error;
-      
-      await this.logAdminAction({
-        entityId: userId,
-        entityType: 'user',
-        action: 'delete',
-      });
-      
-      toast({
-        title: "Usuário excluído",
-        description: "O usuário foi excluído com sucesso.",
-      });
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      toast({
-        title: "Erro ao excluir usuário",
-        description: error.message || "Ocorreu um erro ao excluir o usuário.",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  },
-
-  /**
-   * Get all spaces
-   * @param {FilterOptions} options - Query options
-   * @param {number} page - Page number
-   * @param {number} pageSize - Number of spaces per page
-   * @returns {Promise<PaginatedResult<AdminSpace>>} List of admin spaces
-   */
-  async getSpaces(options: FilterOptions = {}, page: number = 1, pageSize: number = 10): Promise<PaginatedResult<AdminSpace>> {
-    try {
-      const { searchTerm = '', status = null, sortBy = 'created_at', sortDirection = 'desc' } = options;
-      const startIndex = (page - 1) * pageSize;
+      const offset = (page - 1) * pageSize;
       
       let query = supabase
         .from('spaces')
         .select(`
-          *,
-          owner:owner_id(id, full_name)
-        `, { count: 'exact' })
-        .ilike('name', `%${searchTerm}%`)
-        .order(sortBy, { ascending: sortDirection === 'asc' })
-        .range(startIndex, startIndex + pageSize - 1);
+          id,
+          name,
+          type,
+          location,
+          status,
+          created_at,
+          price_per_day,
+          profiles!inner(id, full_name)
+        `, { count: 'exact' });
       
-      if (status) {
-        query = query.eq('status', status);
+      if (filters.type) {
+        query = query.eq('type', filters.type);
       }
       
-      const { data, error, count } = await query;
+      if (filters.status) {
+        query = query.eq('status', filters.status);
+      }
       
-      if (error) throw error;
+      if (filters.location) {
+        query = query.ilike('location', `%${filters.location}%`);
+      }
       
-      return { data: data as AdminSpace[] || [], total: count || 0 };
+      if (filters.owner) {
+        query = query.ilike('profiles.full_name', `%${filters.owner}%`);
+      }
+      
+      // Apply sorting if provided
+      if (filters.sortBy) {
+        const direction = filters.sortDirection || 'asc';
+        query = query.order(filters.sortBy, { ascending: direction === 'asc' });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+      
+      // Apply pagination
+      query = query.range(offset, offset + pageSize - 1);
+      
+      const { data, count, error } = await query;
+      
+      if (error) {
+        throw error;
+      }
+      
+      const formattedSpaces: AdminSpace[] = data.map(space => ({
+        id: space.id,
+        name: space.name,
+        type: space.type,
+        location: space.location,
+        status: space.status,
+        created_at: space.created_at,
+        price_per_day: space.price_per_day,
+        owner: {
+          id: space.profiles.id,
+          full_name: space.profiles.full_name
+        }
+      }));
+      
+      return {
+        data: formattedSpaces,
+        total: count || 0
+      };
     } catch (error) {
-      console.error('Error fetching spaces:', error);
-      toast({
-        title: "Erro ao carregar espaços",
-        description: error.message || "Ocorreu um erro ao carregar a lista de espaços.",
-        variant: "destructive",
-      });
-      throw error;
+      console.error('Error loading spaces:', error);
+      return {
+        data: [],
+        total: 0
+      };
     }
-  },
-
+  }
+  
   /**
-   * Update space status
-   * @param {string} spaceId - Space ID
-   * @param {string} status - New status
-   * @returns {Promise<Object>} Updated space
+   * Get reservations with pagination and filtering
+   * @param {FilterOptions} filters Filters for reservations
+   * @param {number} page Page number
+   * @param {number} pageSize Number of reservations per page
+   * @returns {Promise<{data: any[], total: number}>} Reservations and total count
    */
-  async updateSpaceStatus(spaceId: string, status: string): Promise<any> {
+  async getReservations(filters: FilterOptions = {}, page = 1, pageSize = 10): Promise<PaginatedResult<any>> {
     try {
-      const { data, error } = await supabase
-        .from('spaces')
-        .update({ status })
-        .eq('id', spaceId)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      await this.logAdminAction({
-        entityId: spaceId,
-        entityType: 'space',
-        action: `update_status_to_${status}`,
-      });
-      
-      toast({
-        title: "Status atualizado",
-        description: `O status do espaço foi alterado para ${status}.`,
-      });
-      
-      return data;
-    } catch (error) {
-      console.error('Error updating space status:', error);
-      toast({
-        title: "Erro ao atualizar status",
-        description: error.message || "Ocorreu um erro ao atualizar o status do espaço.",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  },
-
-  /**
-   * Delete space
-   * @param {string} spaceId - Space ID
-   * @returns {Promise<void>}
-   */
-  async deleteSpace(spaceId: string): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from('spaces')
-        .delete()
-        .eq('id', spaceId);
-      
-      if (error) throw error;
-      
-      await this.logAdminAction({
-        entityId: spaceId,
-        entityType: 'space',
-        action: 'delete',
-      });
-      
-      toast({
-        title: "Espaço excluído",
-        description: "O espaço foi excluído com sucesso.",
-      });
-    } catch (error) {
-      console.error('Error deleting space:', error);
-      toast({
-        title: "Erro ao excluir espaço",
-        description: error.message || "Ocorreu um erro ao excluir o espaço.",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  },
-
-  /**
-   * Get all reservations
-   * @param {FilterOptions} options - Query options
-   * @param {number} page - Page number
-   * @param {number} pageSize - Number of reservations per page
-   * @returns {Promise<PaginatedResult<any>>} List of reservations
-   */
-  async getReservations(options: FilterOptions = {}, page: number = 1, pageSize: number = 10): Promise<PaginatedResult<any>> {
-    try {
-      const { status = null, sortBy = 'created_at', sortDirection = 'desc' } = options;
-      const startIndex = (page - 1) * pageSize;
+      const offset = (page - 1) * pageSize;
       
       let query = supabase
         .from('reservations')
         .select(`
           *,
-          space:space_id(id, name),
-          user:user_id(id, full_name)
-        `, { count: 'exact' })
-        .order(sortBy, { ascending: sortDirection === 'asc' })
-        .range(startIndex, startIndex + pageSize - 1);
+          space:spaces(id, name, owner_id),
+          user:profiles(id, full_name)
+        `, { count: 'exact' });
       
-      if (status) {
-        query = query.eq('status', status);
+      if (filters.status) {
+        query = query.eq('status', filters.status);
       }
       
-      const { data, error, count } = await query;
+      if (filters.spaceId) {
+        query = query.eq('space_id', filters.spaceId);
+      }
       
-      if (error) throw error;
+      if (filters.userId) {
+        query = query.eq('user_id', filters.userId);
+      }
       
-      return { data: data || [], total: count || 0 };
+      if (filters.startDate) {
+        query = query.gte('start_datetime', filters.startDate);
+      }
+      
+      if (filters.endDate) {
+        query = query.lte('end_datetime', filters.endDate);
+      }
+      
+      // Apply sorting if provided
+      if (filters.sortBy) {
+        const direction = filters.sortDirection || 'asc';
+        query = query.order(filters.sortBy, { ascending: direction === 'asc' });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+      
+      // Apply pagination
+      query = query.range(offset, offset + pageSize - 1);
+      
+      const { data, count, error } = await query;
+      
+      if (error) {
+        throw error;
+      }
+      
+      return {
+        data: data || [],
+        total: count || 0
+      };
     } catch (error) {
-      console.error('Error fetching reservations:', error);
-      toast({
-        title: "Erro ao carregar reservas",
-        description: error.message || "Ocorreu um erro ao carregar a lista de reservas.",
-        variant: "destructive",
-      });
-      throw error;
+      console.error('Error loading reservations:', error);
+      return {
+        data: [],
+        total: 0
+      };
     }
-  },
-
+  }
+  
   /**
-   * Cancel reservation
-   * @param {string} reservationId - Reservation ID
-   * @param {string} reason - Cancellation reason
-   * @returns {Promise<Object>} Updated reservation
+   * Get payments with pagination and filtering
+   * @param {FilterOptions} filters Filters for payments
+   * @param {number} page Page number
+   * @param {number} pageSize Number of payments per page
+   * @returns {Promise<{data: any[], total: number}>} Payments and total count
    */
-  async cancelReservation(reservationId: string, reason: string): Promise<any> {
+  async getPayments(filters: FilterOptions = {}, page = 1, pageSize = 10): Promise<PaginatedResult<any>> {
     try {
-      const { data, error } = await supabase
-        .from('reservations')
-        .update({ status: 'cancelada' })
-        .eq('id', reservationId)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      await this.logAdminAction({
-        entityId: reservationId,
-        entityType: 'reservation',
-        action: 'cancel',
-        details: { reason }
-      });
-      
-      toast({
-        title: "Reserva cancelada",
-        description: "A reserva foi cancelada com sucesso.",
-      });
-      
-      return data;
-    } catch (error) {
-      console.error('Error canceling reservation:', error);
-      toast({
-        title: "Erro ao cancelar reserva",
-        description: error.message || "Ocorreu um erro ao cancelar a reserva.",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  },
-
-  /**
-   * Update reservation status
-   * @param {string} reservationId - Reservation ID
-   * @param {string} status - New status
-   * @returns {Promise<Object>} Updated reservation
-   */
-  async updateReservationStatus(reservationId: string, status: string): Promise<any> {
-    try {
-      const { data, error } = await supabase
-        .from('reservations')
-        .update({ status })
-        .eq('id', reservationId)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      await this.logAdminAction({
-        entityId: reservationId,
-        entityType: 'reservation',
-        action: `update_status_to_${status}`,
-      });
-      
-      toast({
-        title: "Status atualizado",
-        description: `O status da reserva foi alterado para ${status}.`,
-      });
-      
-      return data;
-    } catch (error) {
-      console.error('Error updating reservation status:', error);
-      toast({
-        title: "Erro ao atualizar status",
-        description: error.message || "Ocorreu um erro ao atualizar o status da reserva.",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  },
-
-  /**
-   * Get all payments
-   * @param {FilterOptions} options - Query options
-   * @param {number} page - Page number
-   * @param {number} pageSize - Number of payments per page
-   * @returns {Promise<PaginatedResult<any>>} List of payments
-   */
-  async getPayments(options: FilterOptions = {}, page: number = 1, pageSize: number = 10): Promise<PaginatedResult<any>> {
-    try {
-      const { status = null, sortBy = 'created_at', sortDirection = 'desc' } = options;
-      const startIndex = (page - 1) * pageSize;
+      const offset = (page - 1) * pageSize;
       
       let query = supabase
         .from('payments')
         .select(`
           *,
-          reservation:reservation_id(
-            id, 
-            user_id,
-            user:user_id(full_name),
-            space:space_id(name, owner_id)
+          reservation:reservations(
+            id,
+            user:profiles(id, full_name),
+            space:spaces(id, name)
           )
-        `, { count: 'exact' })
-        .order(sortBy, { ascending: sortDirection === 'asc' })
-        .range(startIndex, startIndex + pageSize - 1);
+        `, { count: 'exact' });
       
-      if (status) {
-        query = query.eq('status', status);
+      if (filters.status) {
+        query = query.eq('status', filters.status);
       }
       
-      const { data, error, count } = await query;
-      
-      if (error) throw error;
-      
-      return { data: data || [], total: count || 0 };
-    } catch (error) {
-      console.error('Error fetching payments:', error);
-      toast({
-        title: "Erro ao carregar pagamentos",
-        description: error.message || "Ocorreu um erro ao carregar a lista de pagamentos.",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  },
-
-  /**
-   * Update payment status
-   * @param {string} paymentId - Payment ID
-   * @param {string} status - New status
-   * @returns {Promise<Object>} Updated payment
-   */
-  async updatePaymentStatus(paymentId: string, status: string): Promise<any> {
-    try {
-      const updates: any = { status };
-      
-      if (status === 'pago') {
-        updates.paid_at = new Date().toISOString();
-      } else if (status === 'liberado') {
-        updates.released_at = new Date().toISOString();
+      if (filters.method) {
+        query = query.eq('method', filters.method);
       }
       
-      const { data, error } = await supabase
-        .from('payments')
-        .update(updates)
-        .eq('id', paymentId)
-        .select()
-        .single();
+      if (filters.startDate) {
+        query = query.gte('created_at', filters.startDate);
+      }
       
-      if (error) throw error;
+      if (filters.endDate) {
+        query = query.lte('created_at', filters.endDate);
+      }
       
-      await this.logAdminAction({
-        entityId: paymentId,
-        entityType: 'payment',
-        action: `update_status_to_${status}`,
-      });
+      // Apply sorting if provided
+      if (filters.sortBy) {
+        const direction = filters.sortDirection || 'asc';
+        query = query.order(filters.sortBy, { ascending: direction === 'asc' });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
       
-      toast({
-        title: "Status atualizado",
-        description: `O status do pagamento foi alterado para ${status}.`,
-      });
+      // Apply pagination
+      query = query.range(offset, offset + pageSize - 1);
       
-      return data;
+      const { data, count, error } = await query;
+      
+      if (error) {
+        throw error;
+      }
+      
+      return {
+        data: data || [],
+        total: count || 0
+      };
     } catch (error) {
-      console.error('Error updating payment status:', error);
-      toast({
-        title: "Erro ao atualizar status",
-        description: error.message || "Ocorreu um erro ao atualizar o status do pagamento.",
-        variant: "destructive",
-      });
-      throw error;
+      console.error('Error loading payments:', error);
+      return {
+        data: [],
+        total: 0
+      };
     }
-  },
-
-  /**
-   * Force release payment
-   * @param {string} paymentId - Payment ID
-   * @returns {Promise<Object>} Updated payment
-   */
-  async forceReleasePayment(paymentId: string): Promise<any> {
-    try {
-      const { data, error } = await supabase
-        .from('payments')
-        .update({
-          status: 'liberado',
-          released_at: new Date().toISOString()
-        })
-        .eq('id', paymentId)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      await this.logAdminAction({
-        entityId: paymentId,
-        entityType: 'payment',
-        action: 'force_release',
-      });
-      
-      toast({
-        title: "Pagamento liberado",
-        description: "O pagamento foi liberado com sucesso.",
-      });
-      
-      return data;
-    } catch (error) {
-      console.error('Error releasing payment:', error);
-      toast({
-        title: "Erro ao liberar pagamento",
-        description: error.message || "Ocorreu um erro ao liberar o pagamento.",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  },
-
-  /**
-   * Mark payment as resolved
-   * @param {string} paymentId - Payment ID
-   * @returns {Promise<Object>} Updated payment
-   */
-  async markPaymentAsResolved(paymentId: string): Promise<any> {
-    try {
-      const { data, error } = await supabase
-        .from('payments')
-        .update({
-          status: 'pago',
-          paid_at: new Date().toISOString()
-        })
-        .eq('id', paymentId)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      await this.logAdminAction({
-        entityId: paymentId,
-        entityType: 'payment',
-        action: 'resolve_error',
-      });
-      
-      toast({
-        title: "Erro resolvido",
-        description: "O pagamento foi marcado como resolvido.",
-      });
-      
-      return data;
-    } catch (error) {
-      console.error('Error resolving payment:', error);
-      toast({
-        title: "Erro ao resolver pagamento",
-        description: error.message || "Ocorreu um erro ao resolver o pagamento.",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  },
-
-  /**
-   * Get all reviews
-   * @param {FilterOptions} filters - Filters for the query
-   * @param {number} page - Page number
-   * @param {number} pageSize - Number of reviews per page
-   * @returns {Promise<PaginatedResult<any>>} List of reviews
-   */
-  async getReviews(filters: FilterOptions = {}, page: number = 1, pageSize: number = 10): Promise<PaginatedResult<any>> {
-    try {
-      const { spaceId = '', userId = '', rating = '', startDate = null, endDate = null } = filters;
-      const startIndex = (page - 1) * pageSize;
+  }
   
+  /**
+   * Get reviews with pagination and filtering
+   * @param {FilterOptions} filters Filters for reviews
+   * @param {number} page Page number
+   * @param {number} pageSize Number of reviews per page
+   * @returns {Promise<{data: any[], total: number}>} Reviews and total count
+   */
+  async getReviews(filters: FilterOptions = {}, page = 1, pageSize = 10): Promise<PaginatedResult<any>> {
+    try {
+      const offset = (page - 1) * pageSize;
+      
       let query = supabase
         .from('reviews')
-        .select(
-          `
-            *,
-            user:user_id(full_name),
-            space:space_id(name, owner_id, owner:owner_id(full_name))
-          `,
-          { count: 'exact' }
-        )
-        .order('created_at', { ascending: false })
-        .range(startIndex, startIndex + pageSize - 1);
-  
-      if (spaceId) {
-        query = query.eq('space_id', spaceId);
+        .select(`
+          *,
+          user:profiles(id, full_name),
+          space:spaces(id, name)
+        `, { count: 'exact' });
+      
+      if (filters.spaceId) {
+        query = query.eq('space_id', filters.spaceId);
       }
-      if (userId) {
-        query = query.eq('user_id', userId);
+      
+      if (filters.userId) {
+        query = query.eq('user_id', filters.userId);
       }
-      if (rating) {
-        query = query.eq('rating', rating);
+      
+      if (filters.rating) {
+        query = query.eq('rating', parseInt(filters.rating));
       }
-      if (startDate) {
-        query = query.gte('created_at', startDate);
+      
+      if (filters.startDate) {
+        query = query.gte('created_at', filters.startDate);
       }
-      if (endDate) {
-        query = query.lte('created_at', endDate);
+      
+      if (filters.endDate) {
+        query = query.lte('created_at', filters.endDate);
       }
-  
-      const { data, error, count } = await query;
-  
-      if (error) throw error;
-  
-      return { data: data || [], total: count || 0 };
+      
+      // Apply sorting if provided
+      if (filters.sortBy) {
+        const direction = filters.sortDirection || 'asc';
+        query = query.order(filters.sortBy, { ascending: direction === 'asc' });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+      
+      // Apply pagination
+      query = query.range(offset, offset + pageSize - 1);
+      
+      const { data, count, error } = await query;
+      
+      if (error) {
+        throw error;
+      }
+      
+      return {
+        data: data || [],
+        total: count || 0
+      };
     } catch (error) {
-      console.error('Error fetching reviews:', error);
-      toast({
-        title: 'Erro ao carregar avaliações',
-        description: error.message || 'Ocorreu um erro ao carregar a lista de avaliações.',
-        variant: 'destructive',
+      console.error('Error loading reviews:', error);
+      return {
+        data: [],
+        total: 0
+      };
+    }
+  }
+  
+  /**
+   * Get audit logs with pagination and filtering
+   * @param {FilterOptions} filters Filters for audit logs
+   * @param {number} page Page number
+   * @param {number} pageSize Number of logs per page
+   * @returns {Promise<{data: AuditLog[], total: number}>} Audit logs and total count
+   */
+  async getAuditLogs(filters: FilterOptions = {}, page = 1, pageSize = 15): Promise<PaginatedResult<AuditLog>> {
+    try {
+      const offset = (page - 1) * pageSize;
+      
+      let query = supabase
+        .from('admin_logs')
+        .select('*', { count: 'exact' });
+      
+      if (filters.entityType) {
+        query = query.eq('entity_type', filters.entityType);
+      }
+      
+      if (filters.action) {
+        query = query.ilike('action', `%${filters.action}%`);
+      }
+      
+      if (filters.adminId) {
+        query = query.eq('admin_id', filters.adminId);
+      }
+      
+      if (filters.startDate) {
+        query = query.gte('created_at', filters.startDate);
+      }
+      
+      if (filters.endDate) {
+        query = query.lte('created_at', filters.endDate);
+      }
+      
+      // Apply sorting
+      if (filters.sortBy) {
+        const direction = filters.sortDirection || 'asc';
+        query = query.order(filters.sortBy, { ascending: direction === 'asc' });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+      
+      // Apply pagination
+      const limit = filters.limit || pageSize;
+      query = query.range(offset, offset + limit - 1);
+      
+      const { data, count, error } = await query;
+      
+      if (error) {
+        throw error;
+      }
+      
+      return {
+        data: data || [],
+        total: count || 0
+      };
+    } catch (error) {
+      console.error('Error loading audit logs:', error);
+      return {
+        data: [],
+        total: 0
+      };
+    }
+  }
+  
+  /**
+   * Update user status
+   * @param {string} userId User ID
+   * @param {string} status New status
+   * @returns {Promise<void>}
+   */
+  async updateUserStatus(userId: string, status: string): Promise<void> {
+    try {
+      await supabase
+        .from('profiles')
+        .update({ status })
+        .eq('id', userId);
+      
+      // Log the action
+      await this.logAdminAction('user', userId, `update_status_${status}`, {
+        previous_status: 'unknown', // Ideally fetch previous status
+        new_status: status
       });
+    } catch (error) {
+      console.error('Error updating user status:', error);
       throw error;
     }
-  },
-
+  }
+  
+  /**
+   * Reset user password
+   * @param {string} userId User ID
+   * @param {string} email User email
+   * @returns {Promise<void>}
+   */
+  async resetUserPassword(userId: string, email: string): Promise<void> {
+    try {
+      await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`
+      });
+      
+      // Log the action
+      await this.logAdminAction('user', userId, 'reset_password', {
+        email
+      });
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Update space status
+   * @param {string} spaceId Space ID
+   * @param {string} status New status
+   * @returns {Promise<void>}
+   */
+  async updateSpaceStatus(spaceId: string, status: string): Promise<void> {
+    try {
+      await supabase
+        .from('spaces')
+        .update({ status })
+        .eq('id', spaceId);
+      
+      // Log the action
+      await this.logAdminAction('space', spaceId, `update_status_${status}`, {
+        previous_status: 'unknown', // Ideally fetch previous status
+        new_status: status
+      });
+    } catch (error) {
+      console.error('Error updating space status:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Cancel reservation
+   * @param {string} reservationId Reservation ID
+   * @param {string} reason Cancellation reason
+   * @returns {Promise<void>}
+   */
+  async cancelReservation(reservationId: string, reason: string): Promise<void> {
+    try {
+      // Update reservation status
+      await supabase
+        .from('reservations')
+        .update({ status: 'cancelada' })
+        .eq('id', reservationId);
+      
+      // Log the action
+      await this.logAdminAction('reservation', reservationId, 'cancel', {
+        reason
+      });
+    } catch (error) {
+      console.error('Error canceling reservation:', error);
+      throw error;
+    }
+  }
+  
   /**
    * Delete review
-   * @param {string} reviewId - Review ID
-   * @param {string} reason - Reason for deleting the review
+   * @param {string} reviewId Review ID
+   * @param {string} reason Deletion reason
    * @returns {Promise<void>}
    */
   async deleteReview(reviewId: string, reason: string): Promise<void> {
     try {
-      const { error } = await supabase.from('reviews').delete().eq('id', reviewId);
-  
-      if (error) throw error;
-  
-      await this.logAdminAction({
-        entityId: reviewId,
-        entityType: 'review',
-        action: 'delete',
-        details: {
-          reason: reason,
-        },
-      });
-  
-      toast({
-        title: 'Avaliação excluída',
-        description: 'A avaliação foi excluída com sucesso.',
+      // Get review details before deletion for logging
+      const { data: review } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('id', reviewId)
+        .single();
+      
+      // Delete the review
+      await supabase
+        .from('reviews')
+        .delete()
+        .eq('id', reviewId);
+      
+      // Log the action
+      await this.logAdminAction('review', reviewId, 'delete', {
+        review,
+        reason
       });
     } catch (error) {
       console.error('Error deleting review:', error);
-      toast({
-        title: 'Erro ao excluir avaliação',
-        description: error.message || 'Ocorreu um erro ao excluir a avaliação.',
-        variant: 'destructive',
-      });
       throw error;
     }
-  },
-
+  }
+  
   /**
-   * Get admin logs
-   * @param {FilterOptions} options - Query options
-   * @param {number} page - Page number
-   * @param {number} pageSize - Number of logs per page
-   * @returns {Promise<PaginatedResult<AuditLog>>} List of admin logs
+   * Force release payment
+   * @param {string} paymentId Payment ID
+   * @returns {Promise<void>}
    */
-  async getAuditLogs(options: FilterOptions = {}, page: number = 1, pageSize: number = 100): Promise<PaginatedResult<AuditLog>> {
+  async forceReleasePayment(paymentId: string): Promise<void> {
     try {
-      const { sortBy = 'created_at', sortDirection = 'desc', limit = 100 } = options;
-      const startIndex = (page - 1) * pageSize;
+      await supabase
+        .from('payments')
+        .update({ 
+          status: 'liberado', 
+          released_at: new Date().toISOString() 
+        })
+        .eq('id', paymentId);
       
-      const { data, error, count } = await supabase
-        .from('admin_logs')
-        .select('*', { count: 'exact' })
-        .order(sortBy, { ascending: sortDirection === 'asc' })
-        .range(startIndex, startIndex + (limit || pageSize) - 1);
-      
-      if (error) throw error;
-      
-      return { data: data as AuditLog[] || [], total: count || 0 };
+      // Log the action
+      await this.logAdminAction('payment', paymentId, 'force_release', {});
     } catch (error) {
-      console.error('Error fetching admin logs:', error);
-      toast({
-        title: "Erro ao carregar logs",
-        description: error.message || "Ocorreu um erro ao carregar os logs administrativos.",
-        variant: "destructive",
-      });
+      console.error('Error releasing payment:', error);
       throw error;
     }
-  },
-
+  }
+  
   /**
-   * Export data in CSV format
-   * @param {string} type - Type of data to export (users, spaces, reservations, payments)
-   * @returns {Promise<Array>} Data to be exported
+   * Mark payment as resolved
+   * @param {string} paymentId Payment ID
+   * @returns {Promise<void>}
    */
-  async exportData(type: 'users' | 'spaces' | 'reservations' | 'payments'): Promise<any[]> {
+  async markPaymentAsResolved(paymentId: string): Promise<void> {
     try {
-      let data = [];
+      await supabase
+        .from('payments')
+        .update({ status: 'pago' })
+        .eq('id', paymentId)
+        .eq('status', 'erro');
+      
+      // Log the action
+      await this.logAdminAction('payment', paymentId, 'resolve_error', {});
+    } catch (error) {
+      console.error('Error resolving payment:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Export data
+   * @param {string} type Type of data to export
+   * @returns {Promise<any>} Exported data
+   */
+  async exportData(type: string): Promise<any> {
+    try {
+      let data;
       
       switch (type) {
         case 'users':
           const { data: users } = await supabase.from('profiles').select('*');
-          data = users || [];
+          data = users;
           break;
         case 'spaces':
-          const { data: spaces } = await supabase
-            .from('spaces')
-            .select('*, owner:owner_id(full_name)');
-          data = spaces || [];
+          const { data: spaces } = await supabase.from('spaces').select('*');
+          data = spaces;
           break;
         case 'reservations':
-          const { data: reservations } = await supabase
-            .from('reservations')
-            .select('*, user:user_id(full_name), space:space_id(name)');
-          data = reservations || [];
+          const { data: reservations } = await supabase.from('reservations').select('*');
+          data = reservations;
           break;
-        case 'payments':
-          const { data: payments } = await supabase
-            .from('payments')
-            .select('*, reservation:reservation_id(user_id, space_id)');
-          data = payments || [];
-          break;
+        default:
+          throw new Error('Invalid export type');
       }
       
-      await this.logAdminAction({
-        entityId: '',
-        entityType: 'system',
-        action: `export_${type}`,
+      // Log the action
+      await this.logAdminAction('system', 'export', `export_${type}`, {
+        count: data?.length || 0
       });
       
       return data;
     } catch (error) {
-      console.error(`Error exporting ${type}:`, error);
-      toast({
-        title: "Erro na exportação",
-        description: error.message || `Ocorreu um erro ao exportar os dados de ${type}.`,
-        variant: "destructive",
-      });
+      console.error('Error exporting data:', error);
       throw error;
     }
-  },
-
+  }
+  
   /**
    * Log admin action
-   * @param {Object} logData - Log data
-   * @returns {Promise<Object>} Created log
+   * @param {string} entityType Type of entity
+   * @param {string} entityId Entity ID
+   * @param {string} action Action performed
+   * @param {Object} details Additional details
+   * @returns {Promise<void>}
    */
-  async logAdminAction(logData: {
-    entityId: string;
-    entityType: string;
-    action: string;
-    details?: any;
-  }): Promise<any> {
+  private async logAdminAction(
+    entityType: string,
+    entityId: string,
+    action: string,
+    details: Record<string, any> = {}
+  ): Promise<void> {
     try {
-      const { entityId, entityType, action, details = {} } = logData;
-      
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) throw userError;
+      const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        throw new Error('Usuário não autenticado');
+        throw new Error('No authenticated user');
       }
       
-      // Get user profile to get the name
-      const { data: profile, error: profileError } = await supabase
+      // Get user details
+      const { data: profile } = await supabase
         .from('profiles')
         .select('full_name')
         .eq('id', user.id)
         .single();
       
-      if (profileError) throw profileError;
-      
-      const { data, error } = await supabase
-        .from('admin_logs')
-        .insert({
-          entity_id: entityId,
-          entity_type: entityType,
-          action,
-          admin_id: user.id,
-          admin_name: profile?.full_name || user.email,
-          details
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      return data;
+      await supabase.from('admin_logs').insert({
+        entity_type: entityType,
+        entity_id: entityId,
+        action,
+        admin_id: user.id,
+        admin_name: profile?.full_name || user.email,
+        details
+      });
     } catch (error) {
       console.error('Error logging admin action:', error);
-      // Don't show toast for log failures to avoid disrupting UX
-      return null;
     }
-  },
+  }
+}
 
-   /**
-   * Reset user password
-   * @param {string} userId - User ID
-   * @param {string} email - User email
-   * @returns {Promise<void>}
-   */
-  async resetUserPassword(userId: string, email: string): Promise<void> {
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
-
-      if (error) throw error;
-
-      await this.logAdminAction({
-        entityId: userId,
-        entityType: 'user',
-        action: 'reset_password',
-      });
-
-      toast({
-        title: 'Senha redefinida',
-        description: `Um e-mail de redefinição de senha foi enviado para ${email}.`,
-      });
-    } catch (error) {
-      console.error('Error resetting user password:', error);
-      toast({
-        title: 'Erro ao redefinir senha',
-        description: error.message || 'Ocorreu um erro ao redefinir a senha do usuário.',
-        variant: 'destructive',
-      });
-      throw error;
-    }
-  },
-};
+export const adminService = new AdminService();

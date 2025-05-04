@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
-import { adminService, AdminDashboardStats } from '@/services/adminService';
+import { adminService } from '@/services/adminService';
+import { AdminDashboardStats } from '@/types/admin';
 import { 
   Card, 
   CardContent, 
