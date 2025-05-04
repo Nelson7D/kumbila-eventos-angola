@@ -1,16 +1,14 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-
-export interface AdminUser {
-  id: string;
-  email: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  user_role: string;
-  status: string;
-  created_at: string;
-  last_sign_in: string | null;
-}
+import { 
+  AdminUser, 
+  AdminSpace, 
+  AdminDashboardStats, 
+  FilterOptions, 
+  AuditLog, 
+  PaginatedResult 
+} from '@/types/admin';
 
 /**
  * Service for admin operations
@@ -46,11 +44,12 @@ export const adminService = {
       return false;
     }
   },
+
   /**
    * Get dashboard statistics
-   * @returns {Promise<Object>} Dashboard statistics
+   * @returns {Promise<AdminDashboardStats>} Dashboard statistics
    */
-  async getDashboardStats() {
+  async getDashboardStats(): Promise<AdminDashboardStats> {
     try {
       const [usersResponse, spacesResponse, reservationsResponse, paymentsResponse] = await Promise.all([
         supabase.from('profiles').select('*'),
@@ -141,9 +140,9 @@ export const adminService = {
    * @param {string} search - Search term
    * @param {number} page - Page number
    * @param {number} pageSize - Number of users per page
-   * @returns {Promise<Object>} Object with users and total count
+   * @returns {Promise<PaginatedResult<AdminUser>>} Object with users and total count
    */
-  async getUsers(search: string = '', page: number = 1, pageSize: number = 10) {
+  async getUsers(search: string = '', page: number = 1, pageSize: number = 10): Promise<PaginatedResult<AdminUser>> {
     try {
       const startIndex = (page - 1) * pageSize;
       let query = supabase
@@ -160,7 +159,7 @@ export const adminService = {
       const users = data || [];
       const total = count || 0;
   
-      return { users, total };
+      return { data: users as AdminUser[], total };
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -178,7 +177,7 @@ export const adminService = {
    * @param {string} status - New status
    * @returns {Promise<Object>} Updated user
    */
-  async updateUserStatus(userId, status) {
+  async updateUserStatus(userId: string, status: string): Promise<any> {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -217,7 +216,7 @@ export const adminService = {
    * @param {string} userId - User ID
    * @returns {Promise<void>}
    */
-  async deleteUser(userId) {
+  async deleteUser(userId: string): Promise<void> {
     try {
       // This requires admin privileges
       const { error } = await supabase.auth.admin.deleteUser(userId);
@@ -247,31 +246,35 @@ export const adminService = {
 
   /**
    * Get all spaces
-   * @param {Object} options - Query options
-   * @returns {Promise<Array>} List of admin spaces
+   * @param {FilterOptions} options - Query options
+   * @param {number} page - Page number
+   * @param {number} pageSize - Number of spaces per page
+   * @returns {Promise<PaginatedResult<AdminSpace>>} List of admin spaces
    */
-  async getSpaces(options = {}) {
+  async getSpaces(options: FilterOptions = {}, page: number = 1, pageSize: number = 10): Promise<PaginatedResult<AdminSpace>> {
     try {
       const { searchTerm = '', status = null, sortBy = 'created_at', sortDirection = 'desc' } = options;
+      const startIndex = (page - 1) * pageSize;
       
       let query = supabase
         .from('spaces')
         .select(`
           *,
           owner:owner_id(id, full_name)
-        `)
+        `, { count: 'exact' })
         .ilike('name', `%${searchTerm}%`)
-        .order(sortBy, { ascending: sortDirection === 'asc' });
+        .order(sortBy, { ascending: sortDirection === 'asc' })
+        .range(startIndex, startIndex + pageSize - 1);
       
       if (status) {
         query = query.eq('status', status);
       }
       
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       
       if (error) throw error;
       
-      return data || [];
+      return { data: data as AdminSpace[] || [], total: count || 0 };
     } catch (error) {
       console.error('Error fetching spaces:', error);
       toast({
@@ -289,7 +292,7 @@ export const adminService = {
    * @param {string} status - New status
    * @returns {Promise<Object>} Updated space
    */
-  async updateSpaceStatus(spaceId, status) {
+  async updateSpaceStatus(spaceId: string, status: string): Promise<any> {
     try {
       const { data, error } = await supabase
         .from('spaces')
@@ -328,7 +331,7 @@ export const adminService = {
    * @param {string} spaceId - Space ID
    * @returns {Promise<void>}
    */
-  async deleteSpace(spaceId) {
+  async deleteSpace(spaceId: string): Promise<void> {
     try {
       const { error } = await supabase
         .from('spaces')
@@ -360,12 +363,15 @@ export const adminService = {
 
   /**
    * Get all reservations
-   * @param {Object} options - Query options
-   * @returns {Promise<Array>} List of reservations
+   * @param {FilterOptions} options - Query options
+   * @param {number} page - Page number
+   * @param {number} pageSize - Number of reservations per page
+   * @returns {Promise<PaginatedResult<any>>} List of reservations
    */
-  async getReservations(options = {}) {
+  async getReservations(options: FilterOptions = {}, page: number = 1, pageSize: number = 10): Promise<PaginatedResult<any>> {
     try {
       const { status = null, sortBy = 'created_at', sortDirection = 'desc' } = options;
+      const startIndex = (page - 1) * pageSize;
       
       let query = supabase
         .from('reservations')
@@ -373,18 +379,19 @@ export const adminService = {
           *,
           space:space_id(id, name),
           user:user_id(id, full_name)
-        `)
-        .order(sortBy, { ascending: sortDirection === 'asc' });
+        `, { count: 'exact' })
+        .order(sortBy, { ascending: sortDirection === 'asc' })
+        .range(startIndex, startIndex + pageSize - 1);
       
       if (status) {
         query = query.eq('status', status);
       }
       
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       
       if (error) throw error;
       
-      return data || [];
+      return { data: data || [], total: count || 0 };
     } catch (error) {
       console.error('Error fetching reservations:', error);
       toast({
@@ -397,12 +404,53 @@ export const adminService = {
   },
 
   /**
+   * Cancel reservation
+   * @param {string} reservationId - Reservation ID
+   * @param {string} reason - Cancellation reason
+   * @returns {Promise<Object>} Updated reservation
+   */
+  async cancelReservation(reservationId: string, reason: string): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('reservations')
+        .update({ status: 'cancelada' })
+        .eq('id', reservationId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      await this.logAdminAction({
+        entityId: reservationId,
+        entityType: 'reservation',
+        action: 'cancel',
+        details: { reason }
+      });
+      
+      toast({
+        title: "Reserva cancelada",
+        description: "A reserva foi cancelada com sucesso.",
+      });
+      
+      return data;
+    } catch (error) {
+      console.error('Error canceling reservation:', error);
+      toast({
+        title: "Erro ao cancelar reserva",
+        description: error.message || "Ocorreu um erro ao cancelar a reserva.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  },
+
+  /**
    * Update reservation status
    * @param {string} reservationId - Reservation ID
    * @param {string} status - New status
    * @returns {Promise<Object>} Updated reservation
    */
-  async updateReservationStatus(reservationId, status) {
+  async updateReservationStatus(reservationId: string, status: string): Promise<any> {
     try {
       const { data, error } = await supabase
         .from('reservations')
@@ -438,12 +486,15 @@ export const adminService = {
 
   /**
    * Get all payments
-   * @param {Object} options - Query options
-   * @returns {Promise<Array>} List of payments
+   * @param {FilterOptions} options - Query options
+   * @param {number} page - Page number
+   * @param {number} pageSize - Number of payments per page
+   * @returns {Promise<PaginatedResult<any>>} List of payments
    */
-  async getPayments(options = {}) {
+  async getPayments(options: FilterOptions = {}, page: number = 1, pageSize: number = 10): Promise<PaginatedResult<any>> {
     try {
       const { status = null, sortBy = 'created_at', sortDirection = 'desc' } = options;
+      const startIndex = (page - 1) * pageSize;
       
       let query = supabase
         .from('payments')
@@ -455,18 +506,19 @@ export const adminService = {
             user:user_id(full_name),
             space:space_id(name, owner_id)
           )
-        `)
-        .order(sortBy, { ascending: sortDirection === 'asc' });
+        `, { count: 'exact' })
+        .order(sortBy, { ascending: sortDirection === 'asc' })
+        .range(startIndex, startIndex + pageSize - 1);
       
       if (status) {
         query = query.eq('status', status);
       }
       
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       
       if (error) throw error;
       
-      return data || [];
+      return { data: data || [], total: count || 0 };
     } catch (error) {
       console.error('Error fetching payments:', error);
       toast({
@@ -484,9 +536,9 @@ export const adminService = {
    * @param {string} status - New status
    * @returns {Promise<Object>} Updated payment
    */
-  async updatePaymentStatus(paymentId, status) {
+  async updatePaymentStatus(paymentId: string, status: string): Promise<any> {
     try {
-      const updates = { status };
+      const updates: any = { status };
       
       if (status === 'pago') {
         updates.paid_at = new Date().toISOString();
@@ -527,13 +579,97 @@ export const adminService = {
   },
 
   /**
+   * Force release payment
+   * @param {string} paymentId - Payment ID
+   * @returns {Promise<Object>} Updated payment
+   */
+  async forceReleasePayment(paymentId: string): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .update({
+          status: 'liberado',
+          released_at: new Date().toISOString()
+        })
+        .eq('id', paymentId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      await this.logAdminAction({
+        entityId: paymentId,
+        entityType: 'payment',
+        action: 'force_release',
+      });
+      
+      toast({
+        title: "Pagamento liberado",
+        description: "O pagamento foi liberado com sucesso.",
+      });
+      
+      return data;
+    } catch (error) {
+      console.error('Error releasing payment:', error);
+      toast({
+        title: "Erro ao liberar pagamento",
+        description: error.message || "Ocorreu um erro ao liberar o pagamento.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Mark payment as resolved
+   * @param {string} paymentId - Payment ID
+   * @returns {Promise<Object>} Updated payment
+   */
+  async markPaymentAsResolved(paymentId: string): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .update({
+          status: 'pago',
+          paid_at: new Date().toISOString()
+        })
+        .eq('id', paymentId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      await this.logAdminAction({
+        entityId: paymentId,
+        entityType: 'payment',
+        action: 'resolve_error',
+      });
+      
+      toast({
+        title: "Erro resolvido",
+        description: "O pagamento foi marcado como resolvido.",
+      });
+      
+      return data;
+    } catch (error) {
+      console.error('Error resolving payment:', error);
+      toast({
+        title: "Erro ao resolver pagamento",
+        description: error.message || "Ocorreu um erro ao resolver o pagamento.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  },
+
+  /**
    * Get all reviews
-    * @param {Object} filters - Filters for the query
+   * @param {FilterOptions} filters - Filters for the query
    * @param {number} page - Page number
    * @param {number} pageSize - Number of reviews per page
-   * @returns {Promise<Object>} List of reviews
+   * @returns {Promise<PaginatedResult<any>>} List of reviews
    */
-  async getReviews(filters: any = {}, page: number = 1, pageSize: number = 10) {
+  async getReviews(filters: FilterOptions = {}, page: number = 1, pageSize: number = 10): Promise<PaginatedResult<any>> {
     try {
       const { spaceId = '', userId = '', rating = '', startDate = null, endDate = null } = filters;
       const startIndex = (page - 1) * pageSize;
@@ -571,10 +707,7 @@ export const adminService = {
   
       if (error) throw error;
   
-      const reviews = data || [];
-      const total = count || 0;
-  
-      return { reviews, total };
+      return { data: data || [], total: count || 0 };
     } catch (error) {
       console.error('Error fetching reviews:', error);
       toast({
@@ -588,11 +721,11 @@ export const adminService = {
 
   /**
    * Delete review
-    * @param {string} reviewId - Review ID
+   * @param {string} reviewId - Review ID
    * @param {string} reason - Reason for deleting the review
    * @returns {Promise<void>}
    */
-  async deleteReview(reviewId: string, reason: string) {
+  async deleteReview(reviewId: string, reason: string): Promise<void> {
     try {
       const { error } = await supabase.from('reviews').delete().eq('id', reviewId);
   
@@ -624,22 +757,25 @@ export const adminService = {
 
   /**
    * Get admin logs
-   * @param {Object} options - Query options
-   * @returns {Promise<Array>} List of admin logs
+   * @param {FilterOptions} options - Query options
+   * @param {number} page - Page number
+   * @param {number} pageSize - Number of logs per page
+   * @returns {Promise<PaginatedResult<AuditLog>>} List of admin logs
    */
-  async getLogs(options = {}) {
+  async getAuditLogs(options: FilterOptions = {}, page: number = 1, pageSize: number = 100): Promise<PaginatedResult<AuditLog>> {
     try {
       const { sortBy = 'created_at', sortDirection = 'desc', limit = 100 } = options;
+      const startIndex = (page - 1) * pageSize;
       
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('admin_logs')
-        .select('*')
+        .select('*', { count: 'exact' })
         .order(sortBy, { ascending: sortDirection === 'asc' })
-        .limit(limit);
+        .range(startIndex, startIndex + (limit || pageSize) - 1);
       
       if (error) throw error;
       
-      return data || [];
+      return { data: data as AuditLog[] || [], total: count || 0 };
     } catch (error) {
       console.error('Error fetching admin logs:', error);
       toast({
@@ -652,11 +788,68 @@ export const adminService = {
   },
 
   /**
+   * Export data in CSV format
+   * @param {string} type - Type of data to export (users, spaces, reservations, payments)
+   * @returns {Promise<Array>} Data to be exported
+   */
+  async exportData(type: 'users' | 'spaces' | 'reservations' | 'payments'): Promise<any[]> {
+    try {
+      let data = [];
+      
+      switch (type) {
+        case 'users':
+          const { data: users } = await supabase.from('profiles').select('*');
+          data = users || [];
+          break;
+        case 'spaces':
+          const { data: spaces } = await supabase
+            .from('spaces')
+            .select('*, owner:owner_id(full_name)');
+          data = spaces || [];
+          break;
+        case 'reservations':
+          const { data: reservations } = await supabase
+            .from('reservations')
+            .select('*, user:user_id(full_name), space:space_id(name)');
+          data = reservations || [];
+          break;
+        case 'payments':
+          const { data: payments } = await supabase
+            .from('payments')
+            .select('*, reservation:reservation_id(user_id, space_id)');
+          data = payments || [];
+          break;
+      }
+      
+      await this.logAdminAction({
+        entityId: '',
+        entityType: 'system',
+        action: `export_${type}`,
+      });
+      
+      return data;
+    } catch (error) {
+      console.error(`Error exporting ${type}:`, error);
+      toast({
+        title: "Erro na exportação",
+        description: error.message || `Ocorreu um erro ao exportar os dados de ${type}.`,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  },
+
+  /**
    * Log admin action
    * @param {Object} logData - Log data
    * @returns {Promise<Object>} Created log
    */
-  async logAdminAction(logData) {
+  async logAdminAction(logData: {
+    entityId: string;
+    entityType: string;
+    action: string;
+    details?: any;
+  }): Promise<any> {
     try {
       const { entityId, entityType, action, details = {} } = logData;
       
@@ -685,7 +878,7 @@ export const adminService = {
           entity_type: entityType,
           action,
           admin_id: user.id,
-          admin_name: profile.full_name || user.email,
+          admin_name: profile?.full_name || user.email,
           details
         })
         .select()
@@ -707,30 +900,30 @@ export const adminService = {
    * @param {string} email - User email
    * @returns {Promise<void>}
    */
-    async resetUserPassword(userId: string, email: string) {
-      try {
-        const { error } = await supabase.auth.admin.resetPassword(userId);
-  
-        if (error) throw error;
-  
-        await this.logAdminAction({
-          entityId: userId,
-          entityType: 'user',
-          action: 'reset_password',
-        });
-  
-        toast({
-          title: 'Senha redefinida',
-          description: `Um e-mail de redefinição de senha foi enviado para ${email}.`,
-        });
-      } catch (error) {
-        console.error('Error resetting user password:', error);
-        toast({
-          title: 'Erro ao redefinir senha',
-          description: error.message || 'Ocorreu um erro ao redefinir a senha do usuário.',
-          variant: 'destructive',
-        });
-        throw error;
-      }
-    },
+  async resetUserPassword(userId: string, email: string): Promise<void> {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+      if (error) throw error;
+
+      await this.logAdminAction({
+        entityId: userId,
+        entityType: 'user',
+        action: 'reset_password',
+      });
+
+      toast({
+        title: 'Senha redefinida',
+        description: `Um e-mail de redefinição de senha foi enviado para ${email}.`,
+      });
+    } catch (error) {
+      console.error('Error resetting user password:', error);
+      toast({
+        title: 'Erro ao redefinir senha',
+        description: error.message || 'Ocorreu um erro ao redefinir a senha do usuário.',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  },
 };

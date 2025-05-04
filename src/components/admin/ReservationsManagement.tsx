@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { adminService } from '@/services/adminService';
+import { FilterOptions } from '@/types/admin';
 import { 
   Table, 
   TableBody, 
@@ -65,13 +66,7 @@ const ReservationsManagement = () => {
   const [cancelReason, setCancelReason] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalReservations, setTotalReservations] = useState<number>(0);
-  const [filters, setFilters] = useState<{
-    status: string;
-    spaceId: string;
-    userId: string;
-    startDate: string | null;
-    endDate: string | null;
-  }>({
+  const [filters, setFilters] = useState<FilterOptions>({
     status: '',
     spaceId: '',
     userId: '',
@@ -89,9 +84,9 @@ const ReservationsManagement = () => {
   const fetchReservations = async () => {
     setIsLoading(true);
     try {
-      const { reservations, total } = await adminService.getReservations(filters, currentPage, reservationsPerPage);
-      setReservations(reservations);
-      setTotalReservations(total);
+      const result = await adminService.getReservations(filters, currentPage, reservationsPerPage);
+      setReservations(result.data);
+      setTotalReservations(result.total);
     } catch (error) {
       console.error('Error loading reservations:', error);
     } finally {
